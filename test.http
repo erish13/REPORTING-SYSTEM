@@ -1,0 +1,59 @@
+### 1. Health Check
+GET http://localhost:3000/api/health
+
+### 2. Get All Records (empty initially)
+GET http://localhost:3000/api/records
+
+### 3. Create Income Record
+POST http://localhost:3000/api/records
+Content-Type: application/json
+
+{
+  "date": "2026-02-27",
+  "category": "Salary",
+  "description": "Monthly salary",
+  "amount": 5000,
+  "type": "income"
+}
+
+### 4. Create Expense Record
+POST http://localhost:3000/api/records
+Content-Type: application/json
+
+{
+  "date": "2026-02-27",
+  "category": "Food",
+  "description": "Groceries",
+  "amount": 500,
+  "type": "expense"
+}
+
+### 5. Get All Records
+GET http://localhost:3000/api/records
+
+### 6. Get Single Record (ID 1)
+GET http://localhost:3000/api/records/1
+
+### 7. Update Record
+PUT http://localhost:3000/api/records/1
+Content-Type: application/json
+
+{
+  "amount": 5500,
+  "description": "Monthly salary + bonus"
+}
+
+### 8. Filter Daily
+GET http://localhost:3000/api/records/filter/query?period=daily
+
+### 9. Filter Weekly
+GET http://localhost:3000/api/records/filter/query?period=weekly
+
+### 10. Filter by Type (Income only)
+GET http://localhost:3000/api/records/filter/query?period=daily&type=income
+
+### 11. Get Summary
+GET http://localhost:3000/api/records/summary/stats
+
+### 12. Delete Record (ID 1)
+DELETE http://localhost:3000/api/records/1
