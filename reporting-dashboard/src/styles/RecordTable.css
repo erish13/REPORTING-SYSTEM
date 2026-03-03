@@ -1,205 +1,111 @@
-﻿.record-table {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 15px;
-}
-
-.record-table h2 {
-  margin: 0 0 15px 0;
-  color: #1f3c88;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.table-wrapper {
-  flex: 1;
-  overflow: auto;
-  border-radius: 6px;
-  border: 1px solid #d1d5db;
-  background: white;
-}
-
-.record-table table {
+﻿.record-table-wrapper {
   width: 100%;
+  overflow-x: auto;
+}
+
+.records-table {
+  width: 100%;
+  min-width: 950px;
+  table-layout: fixed;
   border-collapse: collapse;
-  font-size: 12px;
-}
-
-/* TABLE HEADER */
-.record-table th {
-  background-color: #1f3c88;
-  color: white;
-  padding: 12px 10px;
-  text-align: left;
-  font-weight: 600;
-  border-right: 1px solid #0f1d4a;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  white-space: nowrap;
-}
-
-.record-table th:last-child {
-  border-right: none;
-}
-
-/* TABLE BODY */
-.record-table td {
-  padding: 12px 10px;
-  border-bottom: 1px solid #e5e7eb;
-  border-right: 1px solid #e5e7eb;
-  word-wrap: break-word;
-  max-width: 200px;
-}
-
-.record-table td:last-child {
-  border-right: none;
-}
-
-/* ALTERNATING ROWS */
-.record-table tbody tr:nth-child(odd) {
-  background-color: #ffffff;
-}
-
-.record-table tbody tr:nth-child(even) {
-  background-color: #f9fafb;
-}
-
-/* HOVER EFFECT */
-.record-table tbody tr:hover {
-  background-color: #f0f4ff;
-  box-shadow: inset 0 0 10px rgba(31, 60, 136, 0.05);
-}
-
-/* COLUMN WIDTHS */
-.col-date {
-  min-width: 120px;
-}
-
-.col-organization {
-  min-width: 130px;
-}
-
-.col-office {
-  min-width: 130px;
-}
-
-.col-activity {
-  min-width: 150px;
-}
-
-.col-venue {
-  min-width: 130px;
-}
-
-.col-activity-date {
-  min-width: 120px;
-}
-
-.col-time {
-  min-width: 120px;
-  text-align: center;
-  font-weight: 500;
-  color: #1f3c88;
-}
-
-.col-participants {
-  min-width: 100px;
-  text-align: center;
-}
-
-.col-actions {
-  min-width: 80px;
-  text-align: center;
-}
-
-/* TEXT FORMATTING */
-.record-table .center {
-  text-align: center;
-}
-
-.record-table .bold {
-  font-weight: 600;
-  color: #1f3c88;
-}
-
-/* ACTION BUTTONS */
-.record-table .actions {
-  text-align: center;
-  padding: 8px 10px;
-}
-
-.record-table .btn {
-  padding: 6px 10px;
-  border: none;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  background-color: #ef4444;
-  color: white;
-}
-
-.record-table .btn:hover {
-  background-color: #dc2626;
-  transform: scale(1.05);
-}
-
-.record-table .btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* LOADING & EMPTY STATES */
-.loading,
-.no-data {
-  text-align: center;
-  padding: 40px 20px;
-  color: #9ca3af;
+  border-spacing: 0;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   font-size: 14px;
 }
 
-/* FOOTER INFO */
-.record-count {
-  padding-top: 10px;
-  color: #6b7280;
-  font-size: 12px;
+/* ===== HEADER ===== */
+.records-table thead th {
+  background: #1e3a8a;
+  color: #ffffff;
+  text-align: left;
+  vertical-align: middle;
+
+  /* Use horizontal padding only para pantay sa body height */
+  padding: 0 12px;
+  height: 52px;
+  line-height: 52px;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  border-right: 1px solid rgba(255, 255, 255, 0.18);
+  box-sizing: border-box;
+}
+
+.records-table thead th:last-child {
+  border-right: none;
+}
+
+/* exact widths para aligned header/body */
+.records-table th.money,
+.records-table td.money {
+  width: 170px;
+  min-width: 170px;
+  max-width: 170px;
   text-align: right;
-  font-weight: 500;
 }
 
-/* SCROLLBAR STYLING */
-.table-wrapper::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+.records-table th.actions,
+.records-table td.actions {
+  width: 130px;
+  min-width: 130px;
+  max-width: 130px;
+  text-align: center;
 }
 
-.table-wrapper::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
+/* ===== BODY ===== */
+.records-table tbody td {
+  padding: 12px;
+  height: 52px;
+  vertical-align: middle;
+  border-top: 1px solid #e5e7eb;
+  border-right: 1px solid #f1f5f9;
+  box-sizing: border-box;
 }
 
-.table-wrapper::-webkit-scrollbar-thumb {
-  background: #cbd5e0;
-  border-radius: 4px;
+.records-table tbody td:last-child {
+  border-right: none;
 }
 
-.table-wrapper::-webkit-scrollbar-thumb:hover {
-  background: #a0aec0;
+.records-table tbody tr:nth-child(even) td {
+  background: #f8fafc;
 }
 
-/* RESPONSIVE */
-@media (max-width: 1200px) {
-  .record-table td {
-    max-width: 150px;
-    padding: 10px 8px;
-    font-size: 11px;
-  }
+.records-table tbody tr:hover td {
+  background: #eef2ff;
+}
 
-  .record-table th {
-    padding: 10px 8px;
-    font-size: 11px;
-  }
+/* ===== ACTION CELL ===== */
+.records-table td.actions {
+  padding: 0;
+}
+
+.records-table td.actions .actions-cell {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px; /* tighter para walang sobrang white sa kanan */
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.btn-delete {
+  background: #111827;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  min-width: 90px;
+  height: 38px;
+  line-height: 38px;
+  padding: 0 12px;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.btn-delete:hover {
+  background: #000;
 }

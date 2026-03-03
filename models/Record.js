@@ -13,13 +13,14 @@ class Record {
       time_in,
       time_out,
       no_of_participants,
+      environmental_fee, // NEW
     } = data;
 
     const query = `
       INSERT INTO records 
       (date, organization_unit, office_in_charge, proposed_activity, 
-       venue, activity_date, time_in, time_out, no_of_participants)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       venue, activity_date, time_in, time_out, no_of_participants, environmental_fee)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     try {
@@ -33,6 +34,7 @@ class Record {
         time_in,
         time_out,
         no_of_participants,
+        environmental_fee ?? 0, // NEW (default)
       ]);
 
       return {
@@ -50,7 +52,7 @@ class Record {
     const query = `
       SELECT 
         id, date, organization_unit, office_in_charge, proposed_activity,
-        venue, activity_date, time_in, time_out, no_of_participants, created_at
+        venue, activity_date, time_in, time_out, no_of_participants, environmental_fee, created_at
       FROM records
       ORDER BY activity_date DESC
     `;
@@ -68,7 +70,7 @@ class Record {
     const query = `
       SELECT 
         id, date, organization_unit, office_in_charge, proposed_activity,
-        venue, activity_date, time_in, time_out, no_of_participants, created_at
+        venue, activity_date, time_in, time_out, no_of_participants, environmental_fee, created_at
       FROM records
       WHERE id = ?
     `;
@@ -93,13 +95,14 @@ class Record {
       time_in,
       time_out,
       no_of_participants,
+      environmental_fee, // NEW
     } = data;
 
     const query = `
       UPDATE records
       SET date = ?, organization_unit = ?, office_in_charge = ?, 
           proposed_activity = ?, venue = ?, activity_date = ?, 
-          time_in = ?, time_out = ?, no_of_participants = ?
+          time_in = ?, time_out = ?, no_of_participants = ?, environmental_fee = ?
       WHERE id = ?
     `;
 
@@ -114,6 +117,7 @@ class Record {
         time_in,
         time_out,
         no_of_participants,
+        environmental_fee ?? 0, // NEW
         id,
       ]);
 
@@ -149,7 +153,7 @@ class Record {
     const query = `
       SELECT 
         id, date, organization_unit, office_in_charge, proposed_activity,
-        venue, activity_date, time_in, time_out, no_of_participants, created_at
+        venue, activity_date, time_in, time_out, no_of_participants, environmental_fee, created_at
       FROM records
       WHERE activity_date BETWEEN ? AND ?
       ORDER BY activity_date DESC
@@ -171,6 +175,7 @@ class Record {
         COUNT(*) as total_records,
         COUNT(DISTINCT organization_unit) as total_units,
         SUM(CAST(no_of_participants AS UNSIGNED)) as total_participants,
+        SUM(COALESCE(environmental_fee, 0)) as total_environmental_fee,
         MAX(activity_date) as latest_activity,
         MIN(activity_date) as earliest_activity
       FROM records
@@ -189,7 +194,7 @@ class Record {
     const query = `
       SELECT 
         id, date, organization_unit, office_in_charge, proposed_activity,
-        venue, activity_date, time_in, time_out, no_of_participants, created_at
+        venue, activity_date, time_in, time_out, no_of_participants, environmental_fee, created_at
       FROM records
       WHERE organization_unit = ?
       ORDER BY activity_date DESC
@@ -208,7 +213,7 @@ class Record {
     const query = `
       SELECT 
         id, date, organization_unit, office_in_charge, proposed_activity,
-        venue, activity_date, time_in, time_out, no_of_participants, created_at
+        venue, activity_date, time_in, time_out, no_of_participants, environmental_fee, created_at
       FROM records
       WHERE is_archived = 0
       ORDER BY activity_date DESC
@@ -241,7 +246,7 @@ class Record {
     const query = `
       SELECT 
         id, date, organization_unit, office_in_charge, proposed_activity,
-        venue, activity_date, time_in, time_out, no_of_participants, created_at, archive_week_key
+        venue, activity_date, time_in, time_out, no_of_participants, environmental_fee, created_at, archive_week_key
       FROM records
       WHERE is_archived = 1 AND archive_week_key = ?
       ORDER BY activity_date DESC
@@ -257,7 +262,12 @@ class Record {
   // Get all archived weeks
   static async getArchivedWeeks() {
     const query = `
-      SELECT DISTINCT archive_week_key, MIN(activity_date) as week_start, MAX(activity_date) as week_end, COUNT(*) as record_count
+      SELECT DISTINCT 
+        archive_week_key, 
+        MIN(activity_date) as week_start, 
+        MAX(activity_date) as week_end, 
+        COUNT(*) as record_count,
+        SUM(COALESCE(environmental_fee, 0)) as total_environmental_fee
       FROM records
       WHERE is_archived = 1
       GROUP BY archive_week_key

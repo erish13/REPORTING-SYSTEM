@@ -17,6 +17,7 @@ exports.createRecord = async (req, res) => {
       time_in,
       time_out,
       no_of_participants,
+      environmental_fee, // NEW
     } = req.body;
 
     // Validation
@@ -37,10 +38,23 @@ exports.createRecord = async (req, res) => {
       });
     }
 
-    if (isNaN(no_of_participants) || no_of_participants <= 0) {
+    if (isNaN(no_of_participants) || Number(no_of_participants) <= 0) {
       return res
         .status(400)
         .json({ error: 'Number of participants must be a positive number' });
+    }
+
+    const fee =
+      environmental_fee === undefined ||
+      environmental_fee === null ||
+      environmental_fee === ''
+        ? 0
+        : Number(environmental_fee);
+
+    if (Number.isNaN(fee) || fee < 0) {
+      return res
+        .status(400)
+        .json({ error: 'Environmental fee must be a number 0 or greater' });
     }
 
     const result = await Record.create({
@@ -53,6 +67,7 @@ exports.createRecord = async (req, res) => {
       time_in,
       time_out,
       no_of_participants,
+      environmental_fee: fee,
     });
 
     res.status(201).json(result);
@@ -122,23 +137,40 @@ exports.updateRecord = async (req, res) => {
       time_in,
       time_out,
       no_of_participants,
+      environmental_fee, // NEW
     } = req.body;
 
     if (!id || isNaN(id)) {
       return res.status(400).json({ error: 'Invalid record ID' });
     }
 
-    // Check if record exists
     const existingRecord = await Record.getById(id);
     if (!existingRecord) {
       return res.status(404).json({ error: 'Record not found' });
     }
 
-    // Validation
-    if (no_of_participants && (isNaN(no_of_participants) || no_of_participants <= 0)) {
+    if (
+      no_of_participants &&
+      (isNaN(no_of_participants) || Number(no_of_participants) <= 0)
+    ) {
       return res
         .status(400)
         .json({ error: 'Number of participants must be a positive number' });
+    }
+
+    let feeToSave = existingRecord.environmental_fee ?? 0;
+    if (
+      environmental_fee !== undefined &&
+      environmental_fee !== null &&
+      environmental_fee !== ''
+    ) {
+      const parsedFee = Number(environmental_fee);
+      if (Number.isNaN(parsedFee) || parsedFee < 0) {
+        return res
+          .status(400)
+          .json({ error: 'Environmental fee must be a number 0 or greater' });
+      }
+      feeToSave = parsedFee;
     }
 
     const result = await Record.update(id, {
@@ -151,6 +183,7 @@ exports.updateRecord = async (req, res) => {
       time_in: time_in || existingRecord.time_in,
       time_out: time_out || existingRecord.time_out,
       no_of_participants: no_of_participants || existingRecord.no_of_participants,
+      environmental_fee: feeToSave,
     });
 
     res.status(200).json(result);
@@ -193,37 +226,21 @@ exports.filterRecords = async (req, res) => {
       });
     }
 
-    // Get date range
     const { startDate: start, endDate: end } = getDateRange(
       period,
       startDate,
       endDate
     );
 
-    console.log(
-      `Filtering records from ${start} to ${end} for period: ${period}`
-    );
-
-    // Fetch records by date range
     let records = await Record.getByDateRange(start, end);
 
-    console.log(`Found ${records.length} records`);
-
-    // Filter by type if specified
     if (type) {
       records = records.filter((r) => r.type === type);
     }
 
-    // Calculate summary
     const summary = {
-      income: {
-        total: 0,
-        count: 0,
-      },
-      expense: {
-        total: 0,
-        count: 0,
-      },
+      income: { total: 0, count: 0 },
+      expense: { total: 0, count: 0 },
       net: 0,
     };
 
@@ -263,6 +280,7 @@ exports.getRecordSummary = async (req, res) => {
         total_records: summary.total_records || 0,
         total_units: summary.total_units || 0,
         total_participants: summary.total_participants || 0,
+        total_environmental_fee: summary.total_environmental_fee || 0, // NEW
         latest_activity: summary.latest_activity,
         earliest_activity: summary.earliest_activity,
       },

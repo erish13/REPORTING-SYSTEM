@@ -8,7 +8,10 @@ function ReportGenerator({ period }) {
   const handleDownloadPDF = async () => {
     try {
       setLoading(true);
-      reportsAPI.getPDF(period);
+
+      // If you don't use custom ranges here, pass null/empty for start/end/type
+      reportsAPI.getPDF(period, '', '', '');
+
       alert('📄 PDF downloaded successfully!');
     } catch (error) {
       console.error('Error downloading PDF:', error);
@@ -21,7 +24,9 @@ function ReportGenerator({ period }) {
   const handleDownloadExcel = async () => {
     try {
       setLoading(true);
-      reportsAPI.getExcel(period);
+
+      reportsAPI.getExcel(period, '', '', '');
+
       alert('📊 Excel downloaded successfully!');
     } catch (error) {
       console.error('Error downloading Excel:', error);
@@ -46,30 +51,13 @@ function ReportGenerator({ period }) {
       </div>
 
       <div className="report-actions">
-        <button
-          className="btn btn-primary"
-          onClick={handleDownloadPDF}
-          disabled={loading}
-        >
+        <button className="btn btn-primary" onClick={handleDownloadPDF} disabled={loading}>
           {loading ? '⏳ Processing...' : '📥 Download PDF'}
         </button>
 
-        <button
-          className="btn btn-success"
-          onClick={handleDownloadExcel}
-          disabled={loading}
-        >
+        <button className="btn btn-success" onClick={handleDownloadExcel} disabled={loading}>
           {loading ? '⏳ Processing...' : '📥 Download Excel'}
         </button>
-      </div>
-
-      <div className="report-tips">
-        <h4>💡 Tips</h4>
-        <ul>
-          <li>Switch tabs to change the report period</li>
-          <li>PDF reports are formatted for printing</li>
-          <li>Excel files can be edited in any spreadsheet app</li>
-        </ul>
       </div>
     </div>
   );

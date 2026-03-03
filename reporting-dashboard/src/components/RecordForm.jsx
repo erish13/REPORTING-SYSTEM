@@ -12,6 +12,7 @@ function RecordForm({ onSubmit }) {
     time_in: '',
     time_out: '',
     no_of_participants: '',
+    environmental_fee: '', // NEW
   });
 
   // Function to format time with AM/PM
@@ -19,7 +20,7 @@ function RecordForm({ onSubmit }) {
     if (!time) return '';
 
     const [hours, minutes] = time.split(':');
-    let hour = parseInt(hours);
+    let hour = parseInt(hours, 10);
     const ampm = hour >= 12 ? 'PM' : 'AM';
 
     if (hour > 12) {
@@ -57,12 +58,28 @@ function RecordForm({ onSubmit }) {
       return;
     }
 
-    if (isNaN(formData.no_of_participants) || formData.no_of_participants <= 0) {
+    if (isNaN(formData.no_of_participants) || Number(formData.no_of_participants) <= 0) {
       alert('Number of participants must be a positive number');
       return;
     }
 
-    onSubmit(formData);
+    // Environmental fee validation (optional, but must be >= 0 if provided)
+    if (formData.environmental_fee !== '') {
+      const fee = Number(formData.environmental_fee);
+      if (Number.isNaN(fee) || fee < 0) {
+        alert('Environmental fee must be a number 0 or greater');
+        return;
+      }
+    }
+
+    // Ensure backend receives a number (or 0)
+    const payload = {
+      ...formData,
+      environmental_fee:
+        formData.environmental_fee === '' ? 0 : Number(formData.environmental_fee),
+    };
+
+    onSubmit(payload);
 
     // Reset form
     setFormData({
@@ -75,6 +92,7 @@ function RecordForm({ onSubmit }) {
       time_in: '',
       time_out: '',
       no_of_participants: '',
+      environmental_fee: '', // NEW
     });
   };
 
@@ -196,6 +214,19 @@ function RecordForm({ onSubmit }) {
             onChange={handleChange}
             min="1"
             required
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Environmental Fee (₱)</label>
+          <input
+            type="number"
+            name="environmental_fee"
+            placeholder="0.00"
+            value={formData.environmental_fee}
+            onChange={handleChange}
+            min="0"
+            step="0.01"
           />
         </div>
 

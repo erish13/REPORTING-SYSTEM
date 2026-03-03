@@ -35,11 +35,22 @@ function ArchivedReports() {
     });
   };
 
+  const formatMoney = (value) => {
+    const n = Number(value);
+    const safe = Number.isFinite(n) ? n : 0;
+    return `₱ ${safe.toLocaleString('en-PH', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
   const downloadArchivedWeekPDF = async (weekKey) => {
     try {
-      // Create a link to the archived week endpoint
       const encodedWeekKey = encodeURIComponent(weekKey);
-      window.open(`http://localhost:3000/api/reports/archived/week/${encodedWeekKey}`, '_blank');
+      window.open(
+        `http://localhost:3000/api/reports/archived/week/${encodedWeekKey}`,
+        '_blank'
+      );
     } catch (error) {
       console.error('Error downloading archived week:', error);
       alert('Failed to download archived week report');
@@ -71,13 +82,17 @@ function ArchivedReports() {
               >
                 <div className="week-info">
                   <h3 className="week-title">
-                    📅{' '}
-                    {formatDate(week.week_start)} - {formatDate(week.week_end)}
+                    📅 {formatDate(week.week_start)} - {formatDate(week.week_end)}
                   </h3>
+
                   <p className="week-meta">
                     {week.record_count} {week.record_count === 1 ? 'record' : 'records'}
+                    {' • '}
+                    <strong>Total Env. Fee:</strong>{' '}
+                    {formatMoney(week.total_environmental_fee)} {/* NEW */}
                   </p>
                 </div>
+
                 <div className="week-actions">
                   <button
                     className="btn-download"
@@ -89,7 +104,11 @@ function ArchivedReports() {
                   >
                     📥 PDF
                   </button>
-                  <span className={`expand-icon ${expanded === week.archive_week_key ? 'expanded' : ''}`}>
+                  <span
+                    className={`expand-icon ${
+                      expanded === week.archive_week_key ? 'expanded' : ''
+                    }`}
+                  >
                     ▼
                   </span>
                 </div>
@@ -105,16 +124,21 @@ function ArchivedReports() {
                     <p>
                       <strong>Total Activities:</strong> {week.record_count}
                     </p>
+
+                    <p>
+                      <strong>Total Environmental Fee:</strong>{' '}
+                      {formatMoney(week.total_environmental_fee)} {/* NEW */}
+                    </p>
+
                     <p>
                       <strong>Archive Key:</strong>{' '}
                       <code className="week-key">{week.archive_week_key}</code>
                     </p>
+
                     <div className="actions">
                       <button
                         className="btn-action btn-download-full"
-                        onClick={() =>
-                          downloadArchivedWeekPDF(week.archive_week_key)
-                        }
+                        onClick={() => downloadArchivedWeekPDF(week.archive_week_key)}
                       >
                         📥 Download PDF Report
                       </button>
