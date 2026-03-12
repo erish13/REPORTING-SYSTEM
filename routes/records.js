@@ -1,15 +1,20 @@
 const express = require('express');
-const recordController = require('../controllers/recordController');
-
 const router = express.Router();
+const { auth, authorize, ownerOnly } = require('../middleware/auth');
+const recordController = require('../controllers/recordController'); // make sure filename is exactly this
 
-// Special routes FIRST (before :id parameter)
-router.get('/summary/stats', recordController.getRecordSummary);
-router.get('/filter/query', recordController.filterRecords);
+// Admin-owner protection
+router.use(auth, authorize('ADMIN'), ownerOnly);
 
-// Standard CRUD routes
+// CRUD
 router.post('/', recordController.createRecord);
 router.get('/', recordController.getAllRecords);
+
+// specific routes first
+router.get('/filter/query', recordController.filterRecords);
+router.get('/summary/stats', recordController.getRecordSummary);
+
+// param routes last
 router.get('/:id', recordController.getRecordById);
 router.put('/:id', recordController.updateRecord);
 router.delete('/:id', recordController.deleteRecord);

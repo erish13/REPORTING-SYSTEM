@@ -4,6 +4,7 @@ import RecordTable from './components/RecordTable';
 import FilterBar from './components/FilterBar';
 import ReportGenerator from './components/ReportGenerator';
 import ArchivedReports from './components/ArchivedReports';
+import LoginForm from './components/LoginForm';
 import { recordsAPI } from './services/api';
 import './App.css';
 
@@ -16,9 +17,16 @@ function App() {
   });
   const [loading, setLoading] = useState(false);
   const [filterPeriod, setFilterPeriod] = useState('daily');
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' or 'archived'
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
 
-  // Load all records
+  const logout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setIsAuthenticated(false);
+    setRecords([]);
+  };
+
   const loadRecords = async () => {
     try {
       setLoading(true);
@@ -31,21 +39,21 @@ function App() {
     }
   };
 
-  // Load summary
   const loadSummary = async () => {
     try {
       const response = await recordsAPI.getSummary();
-      setSummary(response.data.summary || {
-        income: { total: 0 },
-        expense: { total: 0 },
-        net: 0,
-      });
+      setSummary(
+        response.data.summary || {
+          income: { total: 0 },
+          expense: { total: 0 },
+          net: 0,
+        }
+      );
     } catch (error) {
       console.error('Error loading summary:', error);
     }
   };
 
-  // Apply filter
   const handleFilter = async (period) => {
     try {
       setLoading(true);
@@ -53,9 +61,9 @@ function App() {
       const response = await recordsAPI.filter(period);
       setRecords(response.data.data || []);
       setSummary({
-        income: response.data.summary.income || 0,
-        expense: response.data.summary.expense || 0,
-        net: response.data.summary.net || 0,
+        income: response?.data?.summary?.income || { total: 0 },
+        expense: response?.data?.summary?.expense || { total: 0 },
+        net: response?.data?.summary?.net || 0,
       });
     } catch (error) {
       console.error('Error filtering records:', error);
@@ -64,7 +72,6 @@ function App() {
     }
   };
 
-  // Create record
   const handleCreateRecord = async (data) => {
     try {
       await recordsAPI.create(data);
@@ -72,12 +79,10 @@ function App() {
       loadRecords();
       loadSummary();
     } catch (error) {
-      console.error('Error creating record:', error);
-      alert(error.response?.data?.error || 'Failed to create record');
+      alert(error?.response?.data?.error || 'Failed to create record');
     }
   };
 
-  // Delete record
   const handleDeleteRecord = async (id) => {
     if (window.confirm('Are you sure you want to delete this record?')) {
       try {
@@ -86,36 +91,28 @@ function App() {
         loadRecords();
         loadSummary();
       } catch (error) {
-        console.error('Error deleting record:', error);
         alert('Failed to delete record');
       }
     }
   };
 
-  // Initial load
   useEffect(() => {
-    loadRecords();
-    loadSummary();
-  }, []);
+    if (isAuthenticated) {
+      loadRecords();
+      loadSummary();
+    }
+  }, [isAuthenticated]);
 
-  // Safe format function
-  const formatMoney = (value) => {
-    if (!value || isNaN(value)) return '0.00';
-    return parseFloat(value).toFixed(2);
-  };
-
-  // Safe net value
-  const netValue = parseFloat(summary?.net) || 0;
+  if (!isAuthenticated) {
+    return <LoginForm onSuccess={() => setIsAuthenticated(true)} />;
+  }
 
   return (
     <div className="app">
-      {/* Header */}
       <header className="header">
         <div className="header-content">
           <h1>🌿 Environmental Guarantee and Activity Permit</h1>
-          
-          {/* Tab Navigation */}
-          <div className="tab-navigation">
+          <div style={{ display: 'flex', gap: 8 }}>
             <button
               className={`tab-button ${activeTab === 'dashboard' ? 'active' : ''}`}
               onClick={() => setActiveTab('dashboard')}
@@ -128,43 +125,32 @@ function App() {
             >
               📦 Archived Reports
             </button>
+            <button className="tab-button" onClick={logout}>🚪 Logout</button>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="main-content">
         {activeTab === 'dashboard' ? (
           <>
-            {/* Left Sidebar */}
             <aside className="sidebar">
               <RecordForm onSubmit={handleCreateRecord} />
             </aside>
-
-            {/* Center Content */}
             <div className="content-area">
               <FilterBar onFilter={handleFilter} activePeriod={filterPeriod} />
-              <RecordTable
-                records={records}
-                loading={loading}
-                onDelete={handleDeleteRecord}
-              />
+              <RecordTable records={records} loading={loading} onDelete={handleDeleteRecord} />
             </div>
-
-            {/* Right Sidebar */}
             <aside className="sidebar right-sidebar">
               <ReportGenerator period={filterPeriod} />
             </aside>
           </>
         ) : (
-          /* Archived Reports Tab */
           <div className="archived-reports-full-width">
             <ArchivedReports />
           </div>
         )}
       </main>
 
-      {/* Footer */}
       <footer className="footer">
         <p>Total Records: {records.length} | Last Updated: {new Date().toLocaleString()}</p>
       </footer>

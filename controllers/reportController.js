@@ -1,495 +1,391 @@
+const db = require('../config/db');
 const PDFDocument = require('pdfkit');
-const XLSX = require('xlsx');
-const fs = require('fs');
-const path = require('path');
-const Record = require('../models/Record');
-const { getDateRange } = require('../utils/dateUtils');
+const ExcelJS = require('exceljs');
 
-// Create reports folder if doesn't exist
-const reportsDir = path.join(__dirname, '../reports');
-if (!fs.existsSync(reportsDir)) {
-  fs.mkdirSync(reportsDir, { recursive: true });
+function isValidDate(d) {
+  return d instanceof Date && !Number.isNaN(d.getTime());
 }
 
-// Helper function to format time to 12-hour format
-const formatTime12Hour = (time) => {
-  if (!time) return '-';
-  const [hours, minutes] = time.substring(0, 5).split(':');
-  let hour = parseInt(hours, 10);
-  const ampm = hour >= 12 ? 'PM' : 'AM';
-  if (hour > 12) hour -= 12;
-  else if (hour === 0) hour = 12;
-  return `${String(hour).padStart(2, '0')}:${minutes} ${ampm}`;
-};
+function getDateFilter(period, startDate, endDate) {
+  const today = new Date();
+  let from = null;
+  let to = null;
 
-// Helper function to format date
-const formatDate = (dateString) => {
-  if (!dateString) return '-';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
-};
+  if (period === 'daily') {
+    from = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    to = new Date(from);
+    to.setDate(to.getDate() + 1);
+  } else if (period === 'weekly') {
+    const day = today.getDay(); // 0 Sunday
+    from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - day);
+    to = new Date(from);
+    to.setDate(to.getDate() + 7);
+  } else if (period === 'monthly') {
+    from = new Date(today.getFullYear(), today.getMonth(), 1);
+    to = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+  } else if (period === 'yearly') {
+    from = new Date(today.getFullYear(), 0, 1);
+    to = new Date(today.getFullYear() + 1, 0, 1);
+  } else if (period === 'custom') {
+    if (!startDate || !endDate) throw new Error('Custom period requires startDate and endDate');
+    from = new Date(startDate);
+    to = new Date(endDate);
+    if (!isValidDate(from) || !isValidDate(to)) throw new Error('Invalid startDate or endDate');
+    to.setDate(to.getDate() + 1); // include whole end date
+  } else {
+    throw new Error('Invalid period value');
+  }
 
-// Helper: safe int
-const toInt = (v) => {
-  const n = parseInt(v, 10);
-  return Number.isFinite(n) ? n : 0;
-};
+  return { from, to };
+}
 
-// Helper: safe money
-const toMoney = (v) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-};
-
-const formatMoney = (v) =>
-  toMoney(v).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-// Normalize any date-like value to local YYYY-MM-DD
-const toISODateLocal = (value) => {
-  if (!value) return null;
+function formatDate(value) {
+  if (!value) return '-';
   const d = new Date(value);
-  if (isNaN(d)) return null;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
+  if (!isValidDate(d)) return String(value);
+  return d.toLocaleDateString();
+}
 
-// Strict post-filter to avoid timezone bleed (e.g., daily returning previous day)
-const strictFilterByPeriod = (records, period, startDate, endDate) => {
-  const p = String(period || '').toLowerCase();
+function formatDateTime(value) {
+  if (!value) return '-';
+  const d = new Date(value);
+  if (!isValidDate(d)) return String(value);
+  return d.toLocaleString();
+}
 
-  if (p === 'daily') {
-    // EXACT day only
-    return records.filter((r) => toISODateLocal(r.date) === startDate);
+function peso(v) {
+  return `₱ ${Number(v || 0).toFixed(2)}`;
+}
+
+function trimText(text, maxChars = 22) {
+  const t = String(text ?? '-');
+  return t.length > maxChars ? `${t.slice(0, maxChars - 3)}...` : t;
+}
+
+async function fetchRecords(period, startDate, endDate) {
+  const { from, to } = getDateFilter(period, startDate, endDate);
+
+  let sql = `
+    SELECT
+      id,
+      date,
+      organization_unit,
+      office_in_charge,
+      proposed_activity,
+      venue,
+      activity_date,
+      time_in,
+      time_out,
+      no_of_participants,
+      environmental_fee,
+      created_at
+    FROM records
+    WHERE 1=1
+  `;
+  const params = [];
+
+  if (from && to) {
+    sql += ' AND created_at >= ? AND created_at < ?';
+    params.push(from, to);
   }
 
-  // weekly/monthly/custom => inclusive date range
-  return records.filter((r) => {
-    const d = toISODateLocal(r.date);
-    return d && d >= startDate && d <= endDate;
-  });
-};
+  sql += ' ORDER BY created_at DESC';
 
-// Helper function: compute archived weeks from records in date range
-const computeWeeksFromRecords = (records) => {
-  const byWeek = new Map();
-  const toISO = (d) => d.toISOString().split('T')[0];
-
-  for (const r of records) {
-    const d0 = new Date(r.date || r.activity_date);
-    if (isNaN(d0)) continue;
-
-    const day = d0.getDay();
-    const start = new Date(d0);
-    start.setHours(0, 0, 0, 0);
-    start.setDate(d0.getDate() - day);
-
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-
-    const startDate = toISO(start);
-    const endDate = toISO(end);
-    const weekKey = `${startDate}_to_${endDate}`;
-
-    const prev = byWeek.get(weekKey) || { weekKey, startDate, endDate, count: 0 };
-    prev.count += 1;
-    byWeek.set(weekKey, prev);
-  }
-
-  return Array.from(byWeek.values()).sort((a, b) => (a.startDate < b.startDate ? 1 : -1));
-};
+  const [rows] = await db.execute(sql, params);
+  return rows || [];
+}
 
 /**
- * Generate PDF Report
- * GET /api/reports/pdf?period=daily|weekly|monthly|custom&week=1|2|3|4
+ * GET /api/reports/summary
  */
-exports.generatePDFReport = async (req, res) => {
+async function getSummary(req, res) {
   try {
-    const { period = 'daily', week, startDate: customStart, endDate: customEnd } = req.query;
-    const { startDate, endDate, weekLabel } = getDateRange(period, customStart, customEnd, week);
+    const { period = 'daily', startDate = '', endDate = '' } = req.query;
+    const rows = await fetchRecords(period, startDate, endDate);
 
-    const rawRecords = await Record.getByDateRange(startDate, endDate);
-    const records = strictFilterByPeriod(rawRecords, period, startDate, endDate);
+    const totalEnvironmentalFee = rows.reduce((sum, r) => sum + Number(r.environmental_fee || 0), 0);
+    const totalParticipants = rows.reduce((sum, r) => sum + Number(r.no_of_participants || 0), 0);
 
-    const doc = new PDFDocument({ size: 'A4', margin: 25, bufferPages: true });
+    return res.json({
+      success: true,
+      summary: {
+        totalEnvironmentalFee,
+        totalParticipants,
+      },
+      count: rows.length,
+    });
+  } catch (error) {
+    console.error('getSummary error:', error);
+    return res.status(400).json({ error: error.message || 'Failed to generate summary' });
+  }
+}
+
+/**
+ * GET /api/reports/pdf
+ */
+async function downloadPDF(req, res) {
+  try {
+    const { period = 'daily', startDate = '', endDate = '' } = req.query;
+    const rows = await fetchRecords(period, startDate, endDate);
+
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="activity-report-${period}-${Date.now()}.pdf"`
-    );
+    res.setHeader('Content-Disposition', `attachment; filename="records-report-${period}.pdf"`);
+
+    const doc = new PDFDocument({ size: 'A4', margin: 28 });
     doc.pipe(res);
 
-    // Title & header
-    doc.fontSize(20).font('Helvetica-Bold').text('ACTIVITY REPORT', { align: 'center' }).moveDown(0.5);
-
-    const periodLine =
-      String(period).toLowerCase() === 'weekly' && weekLabel
-        ? `Period: WEEKLY (${weekLabel})`
-        : `Period: ${String(period).toUpperCase()}`;
-
-    doc
-      .fontSize(12)
-      .font('Helvetica')
-      .text(periodLine, { align: 'center' })
-      .text(`Date Range: ${formatDate(startDate)} to ${formatDate(endDate)}`, { align: 'center' })
-      .text(`Generated: ${new Date().toLocaleString()}`, { align: 'center' })
-      .moveDown(1);
-
-    // Summary
-    const totalRecords = records.length;
-    const uniqueOrganizations = new Set(records.map((r) => r.organization_unit)).size;
-    const totalParticipants = records.reduce((sum, r) => sum + toInt(r.no_of_participants), 0);
-    const totalEnvironmentalFee = records.reduce((sum, r) => sum + toMoney(r.environmental_fee), 0);
-
-    doc.fontSize(14).font('Helvetica-Bold').text('Summary Statistics', { underline: true }).moveDown(0.5);
-    doc
-      .fontSize(11)
-      .font('Helvetica')
-      .text(`Total Activities: ${totalRecords}`)
-      .text(`Total Unique Organizations: ${uniqueOrganizations}`)
-      .text(`Total Participants: ${totalParticipants}`)
-      .text(`Total Environmental Fee: ₱ ${formatMoney(totalEnvironmentalFee)}`)
-      .moveDown(1.5);
-
-    // Table
-    const tableTop = doc.y;
-    const cols = [25, 78, 135, 192, 249, 306, 365, 405, 445, 485];
-
-    const drawHeader = (y) => {
-      doc.fontSize(8).font('Helvetica-Bold').fillColor('#1f3c88').rect(cols[0], y, 560, 18).fill();
-      doc
-        .fillColor('white')
-        .text('Date', cols[0] + 2, y + 5, { width: 50 })
-        .text('Org', cols[1] + 2, y + 5, { width: 55 })
-        .text('Office', cols[2] + 2, y + 5, { width: 55 })
-        .text('Activity', cols[3] + 2, y + 5, { width: 55 })
-        .text('Venue', cols[4] + 2, y + 5, { width: 55 })
-        .text('Act.Date', cols[5] + 2, y + 5, { width: 55 })
-        .text('In', cols[6] + 2, y + 5, { width: 35 })
-        .text('Out', cols[7] + 2, y + 5, { width: 35 })
-        .text('Pax', cols[8] + 2, y + 5, { width: 35, align: 'center' })
-        .text('Env Fee', cols[9] + 2, y + 5, { width: 95, align: 'right' });
+    const PAGE = {
+      left: 28,
+      right: 28,
+      top: 28,
+      bottom: 28,
+      width: doc.page.width - 56,
+      rowHeight: 24,
+      headerHeight: 24,
     };
 
-    drawHeader(tableTop);
+    const cols = [
+      { key: 'record_date', label: 'Record Date', w: 80, align: 'left' },
+      { key: 'organization_unit', label: 'Organization Unit', w: 95, align: 'left' },
+      { key: 'office_in_charge', label: 'Office in Charge', w: 95, align: 'left' },
+      { key: 'proposed_activity', label: 'Proposed Activity', w: 110, align: 'left' },
+      { key: 'venue', label: 'Venue', w: 85, align: 'left' },
+      { key: 'environmental_fee', label: 'Environmental Fee', w: PAGE.width - (80 + 95 + 95 + 110 + 85), align: 'right' },
+    ];
 
-    let currentY = tableTop + 22;
-    doc.fontSize(7).font('Helvetica').fillColor('black');
+    const tableWidth = cols.reduce((s, c) => s + c.w, 0);
 
-    records.forEach((record, index) => {
-      const rowHeight = 22;
+    const drawTitle = () => {
+      doc.font('Helvetica-Bold').fillColor('#1F2937').fontSize(18).text('All Records', PAGE.left, PAGE.top);
+      doc.font('Helvetica').fillColor('#6B7280').fontSize(9);
+      doc.text(`Period: ${period}`, PAGE.left, PAGE.top + 24);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, PAGE.left + 120, PAGE.top + 24);
+      doc.text(`Total: ${rows.length}`, PAGE.left + 420, PAGE.top + 24, { width: 100, align: 'right' });
+    };
 
-      if (currentY + rowHeight > doc.page.height - 35) {
-        doc.addPage();
-        currentY = 25;
-        drawHeader(currentY);
-        currentY += 22;
-        doc.fillColor('black').fontSize(7).font('Helvetica');
+    const drawHeader = (y) => {
+      doc.save();
+      doc.rect(PAGE.left, y, tableWidth, PAGE.headerHeight).fill('#1E3A8A');
+      doc.restore();
+
+      let x = PAGE.left;
+      doc.font('Helvetica-Bold').fontSize(9).fillColor('#FFFFFF');
+
+      cols.forEach((c) => {
+        doc.text(c.label, x + 6, y + 7, {
+          width: c.w - 12,
+          align: c.align === 'right' ? 'right' : 'left',
+          ellipsis: true,
+        });
+        x += c.w;
+      });
+
+      // header borders
+      x = PAGE.left;
+      doc.strokeColor('#FFFFFF').lineWidth(0.4);
+      cols.forEach((c) => {
+        doc.moveTo(x, y).lineTo(x, y + PAGE.headerHeight).stroke();
+        x += c.w;
+      });
+      doc.moveTo(x, y).lineTo(x, y + PAGE.headerHeight).stroke();
+
+      return y + PAGE.headerHeight;
+    };
+
+    const drawRow = (y, row, index) => {
+      if (index % 2 === 0) {
+        doc.save();
+        doc.rect(PAGE.left, y, tableWidth, PAGE.rowHeight).fill('#F8FAFC');
+        doc.restore();
       }
 
-      if (index % 2 === 0) doc.rect(cols[0], currentY, 560, rowHeight).fill('#f9fafb');
+      const fee = Number(row.environmental_fee || 0);
 
-      doc
-        .fillColor('black')
-        .text(formatDate(record.date), cols[0] + 2, currentY + 3, { width: 50 })
-        .text(record.organization_unit || '-', cols[1] + 2, currentY + 3, { width: 55 })
-        .text(record.office_in_charge || '-', cols[2] + 2, currentY + 3, { width: 55 })
-        .text(record.proposed_activity || '-', cols[3] + 2, currentY + 3, { width: 55 })
-        .text(record.venue || '-', cols[4] + 2, currentY + 3, { width: 55 })
-        .text(formatDate(record.activity_date), cols[5] + 2, currentY + 3, { width: 55 })
-        .text(formatTime12Hour(record.time_in), cols[6] + 2, currentY + 3, { width: 35, align: 'center' })
-        .text(formatTime12Hour(record.time_out), cols[7] + 2, currentY + 3, { width: 35, align: 'center' })
-        .text(String(record.no_of_participants ?? '-'), cols[8] + 2, currentY + 3, {
-          width: 35,
-          align: 'center',
-        })
-        .text(`₱ ${formatMoney(record.environmental_fee)}`, cols[9] + 2, currentY + 3, {
-          width: 95,
-          align: 'right',
+      const data = {
+        record_date: formatDate(row.date),
+        organization_unit: trimText(row.organization_unit, 18),
+        office_in_charge: trimText(row.office_in_charge, 18),
+        proposed_activity: trimText(row.proposed_activity, 22),
+        venue: trimText(row.venue, 16),
+        environmental_fee: peso(fee),
+      };
+
+      let x = PAGE.left;
+      doc.font('Helvetica').fontSize(9).fillColor('#111827');
+
+      cols.forEach((c) => {
+        doc.text(data[c.key], x + 6, y + 7, {
+          width: c.w - 12,
+          align: c.align,
+          ellipsis: true,
         });
+        x += c.w;
+      });
 
-      currentY += rowHeight;
+      // row border
+      doc.strokeColor('#D1D5DB').lineWidth(0.35);
+      doc.rect(PAGE.left, y, tableWidth, PAGE.rowHeight).stroke();
+
+      // vertical lines
+      x = PAGE.left;
+      cols.forEach((c) => {
+        doc.moveTo(x, y).lineTo(x, y + PAGE.rowHeight).stroke();
+        x += c.w;
+      });
+      doc.moveTo(x, y).lineTo(x, y + PAGE.rowHeight).stroke();
+
+      return y + PAGE.rowHeight;
+    };
+
+    drawTitle();
+
+    let y = PAGE.top + 46;
+    y = drawHeader(y);
+
+    let totalFee = 0;
+
+    for (let i = 0; i < rows.length; i++) {
+      if (y + PAGE.rowHeight > doc.page.height - PAGE.bottom - 40) {
+        doc.addPage();
+        drawTitle();
+        y = drawHeader(PAGE.top + 46);
+      }
+
+      totalFee += Number(rows[i].environmental_fee || 0);
+      y = drawRow(y, rows[i], i);
+    }
+
+    if (y + 30 > doc.page.height - PAGE.bottom) {
+      doc.addPage();
+      y = PAGE.top;
+    }
+
+    doc.moveTo(PAGE.left, y + 8).lineTo(PAGE.left + tableWidth, y + 8).strokeColor('#9CA3AF').stroke();
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('#111827');
+    doc.text(`TOTAL ENVIRONMENTAL FEE: ${peso(totalFee)}`, PAGE.left, y + 14, {
+      width: tableWidth - 6,
+      align: 'right',
     });
 
     doc.end();
   } catch (error) {
-    console.error('PDF generation error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('downloadPDF error:', error);
+    return res.status(400).json({ error: error.message || 'Failed to generate PDF' });
   }
-};
+}
 
 /**
- * Generate Excel Report
- * GET /api/reports/excel?period=daily|weekly|monthly|custom&week=1|2|3|4
+ * GET /api/reports/excel
  */
-exports.generateExcelReport = async (req, res) => {
+async function downloadExcel(req, res) {
   try {
-    const { period = 'daily', week, startDate: customStart, endDate: customEnd } = req.query;
-    const { startDate, endDate } = getDateRange(period, customStart, customEnd, week);
+    const { period = 'daily', startDate = '', endDate = '' } = req.query;
+    const rows = await fetchRecords(period, startDate, endDate);
 
-    const rawRecords = await Record.getByDateRange(startDate, endDate);
-    const records = strictFilterByPeriod(rawRecords, period, startDate, endDate);
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('All Records');
 
-    const totalEnvironmentalFee = records.reduce((sum, r) => sum + toMoney(r.environmental_fee), 0);
-
-    const rows = records.map((r) => ({
-      Date: formatDate(r.date),
-      Organization: r.organization_unit || '',
-      Office: r.office_in_charge || '',
-      Activity: r.proposed_activity || '',
-      Venue: r.venue || '',
-      ActivityDate: formatDate(r.activity_date),
-      TimeIn: formatTime12Hour(r.time_in),
-      TimeOut: formatTime12Hour(r.time_out),
-      Participants: toInt(r.no_of_participants),
-      EnvironmentalFee: toMoney(r.environmental_fee),
-    }));
-
-    rows.push({});
-    rows.push({
-      Date: 'TOTAL',
-      EnvironmentalFee: totalEnvironmentalFee,
-    });
-
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(rows);
-
-    ws['!cols'] = [
-      { wch: 18 }, // Date
-      { wch: 22 }, // Org
-      { wch: 22 }, // Office
-      { wch: 25 }, // Activity
-      { wch: 18 }, // Venue
-      { wch: 18 }, // ActivityDate
-      { wch: 12 }, // TimeIn
-      { wch: 12 }, // TimeOut
-      { wch: 14 }, // Participants
-      { wch: 18 }, // EnvironmentalFee
+    sheet.columns = [
+      { header: 'Record Date', key: 'record_date', width: 14 },
+      { header: 'Organization Unit', key: 'organization_unit', width: 24 },
+      { header: 'Office in Charge', key: 'office_in_charge', width: 24 },
+      { header: 'Proposed Activity', key: 'proposed_activity', width: 35 },
+      { header: 'Venue', key: 'venue', width: 20 },
+      { header: 'Environmental Fee', key: 'environmental_fee', width: 20 },
+      { header: 'Activity Date', key: 'activity_date', width: 14 },
+      { header: 'Time In', key: 'time_in', width: 12 },
+      { header: 'Time Out', key: 'time_out', width: 12 },
+      { header: 'Participants', key: 'no_of_participants', width: 14 },
+      { header: 'Created At', key: 'created_at', width: 22 },
     ];
 
-    XLSX.utils.book_append_sheet(wb, ws, 'Report');
+    // Header style
+    const header = sheet.getRow(1);
+    header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    header.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF1E3A8A' },
+    };
+    header.alignment = { vertical: 'middle', horizontal: 'center' };
+    header.height = 22;
 
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    let totalFee = 0;
 
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="activity-report-${period}-${Date.now()}.xlsx"`
-    );
+    rows.forEach((r, index) => {
+      const fee = Number(r.environmental_fee || 0);
+      totalFee += fee;
+
+      const row = sheet.addRow({
+        record_date: formatDate(r.date),
+        organization_unit: r.organization_unit || '',
+        office_in_charge: r.office_in_charge || '',
+        proposed_activity: r.proposed_activity || '',
+        venue: r.venue || '',
+        environmental_fee: fee,
+        activity_date: formatDate(r.activity_date),
+        time_in: r.time_in || '',
+        time_out: r.time_out || '',
+        no_of_participants: Number(r.no_of_participants || 0),
+        created_at: formatDateTime(r.created_at),
+      });
+
+      // zebra rows
+      if (index % 2 === 0) {
+        row.eachCell((cell) => {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF8FAFC' },
+          };
+        });
+      }
+    });
+
+    // Currency format
+    sheet.getColumn('environmental_fee').numFmt = '₱ #,##0.00';
+
+    // Borders + alignment
+    sheet.eachRow((row, rowNumber) => {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+          left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+          bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+          right: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+        };
+        if (rowNumber > 1) {
+          cell.alignment = { vertical: 'middle', horizontal: 'left' };
+        }
+      });
+    });
+    sheet.getColumn('environmental_fee').alignment = { horizontal: 'right' };
+
+    // Total row
+    sheet.addRow([]);
+    const totalRow = sheet.addRow({
+      proposed_activity: 'TOTAL ENVIRONMENTAL FEE',
+      environmental_fee: totalFee,
+    });
+    totalRow.font = { bold: true };
+    totalRow.getCell('environmental_fee').numFmt = '₱ #,##0.00';
+
     res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     );
-    return res.send(buffer);
+    res.setHeader('Content-Disposition', `attachment; filename="records-report-${period}.xlsx"`);
+
+    await workbook.xlsx.write(res);
+    res.end();
   } catch (error) {
-    console.error('Excel generation error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('downloadExcel error:', error);
+    return res.status(400).json({ error: error.message || 'Failed to generate Excel' });
   }
-};
+}
 
-/**
- * Get Report Summary
- * GET /api/reports/summary?period=daily|weekly|monthly|custom&week=1|2|3|4
- */
-exports.getReportSummary = async (req, res) => {
-  try {
-    const { period = 'daily', week, startDate: customStart, endDate: customEnd } = req.query;
-    const { startDate, endDate, weekLabel } = getDateRange(period, customStart, customEnd, week);
-
-    const rawRecords = await Record.getByDateRange(startDate, endDate);
-    const records = strictFilterByPeriod(rawRecords, period, startDate, endDate);
-
-    const totalRecords = records.length;
-    const uniqueOrganizations = new Set(records.map((r) => r.organization_unit)).size;
-    const totalParticipants = records.reduce((sum, r) => sum + toInt(r.no_of_participants), 0);
-    const totalEnvironmentalFee = records.reduce((sum, r) => sum + toMoney(r.environmental_fee), 0);
-
-    return res.json({
-      success: true,
-      period,
-      week: week ? Number(week) : null,
-      weekLabel: weekLabel || null,
-      startDate,
-      endDate,
-      summary: {
-        totalActivities: totalRecords,
-        uniqueOrganizations,
-        totalParticipants,
-        totalEnvironmentalFee,
-      },
-    });
-  } catch (error) {
-    console.error('Get report summary error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-};
-
-/**
- * List Archived Reports (weeks) - simple view
- * GET /api/reports/archived
- */
-exports.listArchivedReports = async (req, res) => {
-  try {
-    const end = new Date();
-    const start = new Date(end);
-    start.setDate(end.getDate() - 365);
-
-    const startDate = start.toISOString().split('T')[0];
-    const endDate = end.toISOString().split('T')[0];
-
-    const records = await Record.getByDateRange(startDate, endDate);
-    const weeks = computeWeeksFromRecords(records);
-
-    return res.json({
-      success: true,
-      startDate,
-      endDate,
-      archivedWeeks: weeks,
-    });
-  } catch (error) {
-    console.error('List archived reports error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-};
-
-/**
- * Get Archived Weeks (alias endpoint)
- * GET /api/reports/archived/weeks
- */
-exports.getArchivedWeeks = async (req, res) => {
-  return exports.listArchivedReports(req, res);
-};
-
-/**
- * Generate Archived Week PDF Report
- * GET /api/reports/archived/week/:weekKey
- */
-exports.generateArchivedWeekReport = async (req, res) => {
-  try {
-    let { weekKey } = req.params;
-    let startDate, endDate;
-
-    if (weekKey.includes('_to_')) {
-      [startDate, endDate] = weekKey.split('_to_');
-    } else {
-      const date = new Date(weekKey);
-      if (isNaN(date)) {
-        return res.status(400).json({ success: false, error: 'Invalid week key format' });
-      }
-      const day = date.getDay();
-      const start = new Date(date);
-      start.setDate(date.getDate() - day);
-      const end = new Date(start);
-      end.setDate(start.getDate() + 6);
-      startDate = start.toISOString().split('T')[0];
-      endDate = end.toISOString().split('T')[0];
-      weekKey = `${startDate}_to_${endDate}`;
-    }
-
-    const records = await Record.getByDateRange(startDate, endDate);
-    if (!records || records.length === 0) {
-      return res.status(404).json({ success: false, error: 'No records found for this week' });
-    }
-
-    const doc = new PDFDocument({ size: 'A4', margin: 25, bufferPages: true });
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="archived-week-report-${weekKey}-${Date.now()}.pdf"`
-    );
-    doc.pipe(res);
-
-    doc
-      .fontSize(20)
-      .font('Helvetica-Bold')
-      .text('ARCHIVED ACTIVITY REPORT', { align: 'center' })
-      .moveDown(0.5);
-
-    doc
-      .fontSize(12)
-      .font('Helvetica')
-      .text(`Period: WEEKLY`, { align: 'center' })
-      .text(`Date Range: ${formatDate(startDate)} to ${formatDate(endDate)}`, { align: 'center' })
-      .text(`Generated: ${new Date().toLocaleString()}`, { align: 'center' })
-      .moveDown(1);
-
-    const totalRecords = records.length;
-    const uniqueOrganizations = new Set(records.map((r) => r.organization_unit)).size;
-    const totalParticipants = records.reduce((sum, r) => sum + toInt(r.no_of_participants), 0);
-    const totalEnvironmentalFee = records.reduce((sum, r) => sum + toMoney(r.environmental_fee), 0);
-
-    doc.fontSize(14).font('Helvetica-Bold').text('Summary Statistics', { underline: true }).moveDown(0.5);
-    doc
-      .fontSize(11)
-      .font('Helvetica')
-      .text(`Total Activities: ${totalRecords}`)
-      .text(`Total Unique Organizations: ${uniqueOrganizations}`)
-      .text(`Total Participants: ${totalParticipants}`)
-      .text(`Total Environmental Fee: ₱ ${formatMoney(totalEnvironmentalFee)}`)
-      .moveDown(1.5);
-
-    const tableTop = doc.y;
-    const cols = [25, 78, 135, 192, 249, 306, 365, 405, 445, 485];
-
-    const drawHeader = (y) => {
-      doc.fontSize(8).font('Helvetica-Bold').fillColor('#1f3c88').rect(cols[0], y, 560, 18).fill();
-      doc
-        .fillColor('white')
-        .text('Date', cols[0] + 2, y + 5, { width: 50 })
-        .text('Org', cols[1] + 2, y + 5, { width: 55 })
-        .text('Office', cols[2] + 2, y + 5, { width: 55 })
-        .text('Activity', cols[3] + 2, y + 5, { width: 55 })
-        .text('Venue', cols[4] + 2, y + 5, { width: 55 })
-        .text('Act.Date', cols[5] + 2, y + 5, { width: 55 })
-        .text('In', cols[6] + 2, y + 5, { width: 35 })
-        .text('Out', cols[7] + 2, y + 5, { width: 35 })
-        .text('Pax', cols[8] + 2, y + 5, { width: 35, align: 'center' })
-        .text('Env Fee', cols[9] + 2, y + 5, { width: 95, align: 'right' });
-    };
-
-    drawHeader(tableTop);
-
-    let currentY = tableTop + 22;
-    doc.fontSize(7).font('Helvetica').fillColor('black');
-
-    records.forEach((record, index) => {
-      const rowHeight = 22;
-
-      if (currentY + rowHeight > doc.page.height - 35) {
-        doc.addPage();
-        currentY = 25;
-        drawHeader(currentY);
-        currentY += 22;
-        doc.fillColor('black').fontSize(7).font('Helvetica');
-      }
-
-      if (index % 2 === 0) doc.rect(cols[0], currentY, 560, rowHeight).fill('#f9fafb');
-
-      doc
-        .fillColor('black')
-        .text(formatDate(record.date), cols[0] + 2, currentY + 3, { width: 50 })
-        .text(record.organization_unit || '-', cols[1] + 2, currentY + 3, { width: 55 })
-        .text(record.office_in_charge || '-', cols[2] + 2, currentY + 3, { width: 55 })
-        .text(record.proposed_activity || '-', cols[3] + 2, currentY + 3, { width: 55 })
-        .text(record.venue || '-', cols[4] + 2, currentY + 3, { width: 55 })
-        .text(formatDate(record.activity_date), cols[5] + 2, currentY + 3, { width: 55 })
-        .text(formatTime12Hour(record.time_in), cols[6] + 2, currentY + 3, { width: 35, align: 'center' })
-        .text(formatTime12Hour(record.time_out), cols[7] + 2, currentY + 3, { width: 35, align: 'center' })
-        .text(String(record.no_of_participants ?? '-'), cols[8] + 2, currentY + 3, {
-          width: 35,
-          align: 'center',
-        })
-        .text(`₱ ${formatMoney(record.environmental_fee)}`, cols[9] + 2, currentY + 3, {
-          width: 95,
-          align: 'right',
-        });
-
-      currentY += rowHeight;
-    });
-
-    doc.end();
-  } catch (error) {
-    console.error('Generate archived week report error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
+module.exports = {
+  getSummary,
+  downloadPDF,
+  downloadExcel,
 };
