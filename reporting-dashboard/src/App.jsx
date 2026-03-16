@@ -3,7 +3,7 @@ import RecordForm from './components/RecordForm';
 import RecordTable from './components/RecordTable';
 import FilterBar from './components/FilterBar';
 import ReportGenerator from './components/ReportGenerator';
-import ArchivedReports from './components/ArchivedReports';
+// Removed: ArchivedReports import
 import LoginForm from './components/LoginForm';
 import { recordsAPI } from './services/api';
 import './App.css';
@@ -17,7 +17,7 @@ function App() {
   });
   const [loading, setLoading] = useState(false);
   const [filterPeriod, setFilterPeriod] = useState('daily');
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // Removed: activeTab state since Archived tab is removed
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
 
   const logout = () => {
@@ -113,42 +113,29 @@ function App() {
         <div className="header-content">
           <h1>🌿 Environmental Guarantee and Activity Permit</h1>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              className={`tab-button ${activeTab === 'dashboard' ? 'active' : ''}`}
-              onClick={() => setActiveTab('dashboard')}
-            >
+            <button className="tab-button active" type="button">
               📊 Dashboard
             </button>
-            <button
-              className={`tab-button ${activeTab === 'archived' ? 'active' : ''}`}
-              onClick={() => setActiveTab('archived')}
-            >
-              📦 Archived Reports
+            <button className="tab-button" onClick={logout} type="button">
+              🚪 Logout
             </button>
-            <button className="tab-button" onClick={logout}>🚪 Logout</button>
           </div>
         </div>
       </header>
 
       <main className="main-content">
-        {activeTab === 'dashboard' ? (
-          <>
-            <aside className="sidebar">
-              <RecordForm onSubmit={handleCreateRecord} />
-            </aside>
-            <div className="content-area">
-              <FilterBar onFilter={handleFilter} activePeriod={filterPeriod} />
-              <RecordTable records={records} loading={loading} onDelete={handleDeleteRecord} />
-            </div>
-            <aside className="sidebar right-sidebar">
-              <ReportGenerator period={filterPeriod} />
-            </aside>
-          </>
-        ) : (
-          <div className="archived-reports-full-width">
-            <ArchivedReports />
+        <>
+          <aside className="sidebar">
+            <RecordForm onSubmit={handleCreateRecord} />
+          </aside>
+          <div className="content-area">
+            <FilterBar onFilter={handleFilter} activePeriod={filterPeriod} />
+            <RecordTable records={records} loading={loading} onDelete={handleDeleteRecord} />
           </div>
-        )}
+          <aside className="sidebar right-sidebar">
+            <ReportGenerator period={filterPeriod} />
+          </aside>
+        </>
       </main>
 
       <footer className="footer">
