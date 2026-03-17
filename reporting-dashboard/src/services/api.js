@@ -64,9 +64,9 @@ const saveBlob = (blob, filename, mimeType) => {
 
 // Reports API
 export const reportsAPI = {
-  getPDF: async (period, startDate = '', endDate = '', type = '') => {
+  getPDF: async (period, startDate = '', endDate = '') => {
     const response = await api.get('/reports/pdf', {
-      params: { period, startDate, endDate, type },
+      params: { period, startDate, endDate },
       responseType: 'blob',
       validateStatus: () => true, // handle non-200 manually
     });
@@ -76,7 +76,7 @@ export const reportsAPI = {
       try {
         const text = await response.data.text();
         if (text) message = text;
-      } catch (_) {}
+      } catch { /* ignore */ }
       throw new Error(message);
     }
 
@@ -88,9 +88,9 @@ export const reportsAPI = {
     return true;
   },
 
-  getExcel: async (period, startDate = '', endDate = '', type = '') => {
+  getExcel: async (period, startDate = '', endDate = '') => {
     const response = await api.get('/reports/excel', {
-      params: { period, startDate, endDate, type },
+      params: { period, startDate, endDate },
       responseType: 'blob',
       validateStatus: () => true, // handle non-200 manually
     });
@@ -100,7 +100,7 @@ export const reportsAPI = {
       try {
         const text = await response.data.text();
         if (text) message = text;
-      } catch (_) {}
+      } catch { /* ignore */ }
       throw new Error(message);
     }
 
@@ -135,7 +135,7 @@ export const reportsAPI = {
       try {
         const text = await response.data.text();
         if (text) message = text;
-      } catch (_) {}
+      } catch { /* ignore */ }
       throw new Error(message);
     }
 

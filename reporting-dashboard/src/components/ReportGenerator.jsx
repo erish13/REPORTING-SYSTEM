@@ -8,7 +8,7 @@ function ReportGenerator({ period }) {
   const handleDownloadPDF = async () => {
     try {
       setLoading(true);
-      await reportsAPI.getPDF(period, '', '', '');
+      await reportsAPI.getPDF(period);
       alert('📄 PDF downloaded successfully!');
     } catch (error) {
       console.error('Error downloading PDF:', error);
@@ -21,7 +21,7 @@ function ReportGenerator({ period }) {
   const handleDownloadExcel = async () => {
     try {
       setLoading(true);
-      await reportsAPI.getExcel(period, '', '', '');
+      await reportsAPI.getExcel(period);
       alert('📊 Excel downloaded successfully!');
     } catch (error) {
       console.error('Error downloading Excel:', error);

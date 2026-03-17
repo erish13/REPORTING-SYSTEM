@@ -10,7 +10,7 @@ import './App.css';
 
 function App() {
   const [records, setRecords] = useState([]);
-  const [summary, setSummary] = useState({
+  const [_summary, setSummary] = useState({
     income: { total: 0 },
     expense: { total: 0 },
     net: 0,
@@ -90,7 +90,7 @@ function App() {
         alert('Record deleted successfully!');
         loadRecords();
         loadSummary();
-      } catch (error) {
+      } catch {
         alert('Failed to delete record');
       }
     }

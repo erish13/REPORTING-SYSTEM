@@ -6,39 +6,6 @@ function isValidDate(d) {
   return d instanceof Date && !Number.isNaN(d.getTime());
 }
 
-function getDateFilter(period, startDate, endDate) {
-  const today = new Date();
-  let from = null;
-  let to = null;
-
-  if (period === 'daily') {
-    from = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    to = new Date(from);
-    to.setDate(to.getDate() + 1);
-  } else if (period === 'weekly') {
-    const day = today.getDay(); // 0 Sunday
-    from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - day);
-    to = new Date(from);
-    to.setDate(to.getDate() + 7);
-  } else if (period === 'monthly') {
-    from = new Date(today.getFullYear(), today.getMonth(), 1);
-    to = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-  } else if (period === 'yearly') {
-    from = new Date(today.getFullYear(), 0, 1);
-    to = new Date(today.getFullYear() + 1, 0, 1);
-  } else if (period === 'custom') {
-    if (!startDate || !endDate) throw new Error('Custom period requires startDate and endDate');
-    from = new Date(startDate);
-    to = new Date(endDate);
-    if (!isValidDate(from) || !isValidDate(to)) throw new Error('Invalid startDate or endDate');
-    to.setDate(to.getDate() + 1); // include whole end date
-  } else {
-    throw new Error('Invalid period value');
-  }
-
-  return { from, to };
-}
-
 function formatDate(value) {
   if (!value) return '-';
   const d = new Date(value);
@@ -63,8 +30,6 @@ function trimText(text, maxChars = 22) {
 }
 
 async function fetchRecords(period, startDate, endDate) {
-  const { from, to } = getDateFilter(period, startDate, endDate);
-
   let sql = `
     SELECT
       id,
@@ -84,12 +49,26 @@ async function fetchRecords(period, startDate, endDate) {
   `;
   const params = [];
 
-  if (from && to) {
-    sql += ' AND created_at >= ? AND created_at < ?';
-    params.push(from, to);
+  if (period === 'daily') {
+    sql += ' AND DATE(date) = CURDATE()';
+  } else if (period === 'weekly') {
+    sql += ' AND YEARWEEK(date, 1) = YEARWEEK(CURDATE(), 1)';
+  } else if (period === 'monthly') {
+    sql += ' AND YEAR(date) = YEAR(CURDATE()) AND MONTH(date) = MONTH(CURDATE())';
+  } else if (period === 'yearly') {
+    sql += ' AND YEAR(date) = YEAR(CURDATE())';
+  } else if (period === 'custom') {
+    if (!startDate || !endDate) throw new Error('Custom period requires startDate and endDate');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+      throw new Error('Invalid startDate or endDate format (expected YYYY-MM-DD)');
+    }
+    sql += ' AND DATE(date) BETWEEN ? AND ?';
+    params.push(startDate, endDate);
+  } else {
+    throw new Error('Invalid period value');
   }
 
-  sql += ' ORDER BY created_at DESC';
+  sql += ' ORDER BY date DESC';
 
   const [rows] = await db.execute(sql, params);
   return rows || [];
@@ -124,6 +103,7 @@ async function getSummary(req, res) {
  * GET /api/reports/pdf
  */
 async function downloadPDF(req, res) {
+  let doc = null;
   try {
     const { period = 'daily', startDate = '', endDate = '' } = req.query;
     const rows = await fetchRecords(period, startDate, endDate);
@@ -131,7 +111,17 @@ async function downloadPDF(req, res) {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="records-report-${period}.pdf"`);
 
-    const doc = new PDFDocument({ size: 'A4', margin: 28 });
+    doc = new PDFDocument({ size: 'A4', margin: 28 });
+
+    doc.on('error', (err) => {
+      console.error('PDFDocument error:', err);
+    });
+
+    res.on('error', (err) => {
+      console.error('Response stream error:', err);
+      try { doc.end(); } catch (endErr) { console.error('Error ending doc on res error:', endErr); }
+    });
+
     doc.pipe(res);
 
     const PAGE = {
@@ -270,7 +260,12 @@ async function downloadPDF(req, res) {
     doc.end();
   } catch (error) {
     console.error('downloadPDF error:', error);
-    return res.status(400).json({ error: error.message || 'Failed to generate PDF' });
+    if (doc) {
+      try { doc.end(); } catch (endErr) { console.error('Error ending doc on cleanup:', endErr); }
+    }
+    if (!res.headersSent) {
+      return res.status(400).json({ error: error.message || 'Failed to generate PDF' });
+    }
   }
 }
 
@@ -380,7 +375,9 @@ async function downloadExcel(req, res) {
     res.end();
   } catch (error) {
     console.error('downloadExcel error:', error);
-    return res.status(400).json({ error: error.message || 'Failed to generate Excel' });
+    if (!res.headersSent) {
+      return res.status(400).json({ error: error.message || 'Failed to generate Excel' });
+    }
   }
 }
 
