@@ -22,8 +22,7 @@ function formatDateTime(value) {
 
 function peso(v) {
   // If ₱ shows as ± in your PDF viewer, change to "PHP"
-  return `₱ ${Number(v || 0).toFixed(2)}`;
-  // return `PHP ${Number(v || 0).toFixed(2)}`;
+  return `PHP ${Number(v || 0).toFixed(2)}`;
 }
 
 function clamp(text, maxChars) {
@@ -180,12 +179,12 @@ async function downloadPDF(req, res) {
 
     // Base widths close to your dashboard columns
     const baseCols = [
-      { key: 'record_date', label: 'Record Date', w: 95, align: 'left' },
-      { key: 'organization_unit', label: 'Org Unit', w: 110, align: 'left' },
-      { key: 'office_in_charge', label: 'Office in Charge', w: 135, align: 'left' },
-      { key: 'proposed_activity', label: 'Proposed Activity', w: 175, align: 'left' },
-      { key: 'venue', label: 'Venue', w: 105, align: 'left' },
-      { key: 'environmental_fee', label: 'Environment\nal', w: 95, align: 'right' },
+      { key: 'record_date', label: 'Record Date', w: 90, align: 'left' },
+      { key: 'organization_unit', label: 'Org Unit', w: 105, align: 'left' },
+      { key: 'office_in_charge', label: 'Office in Charge', w: 130, align: 'left' },
+      { key: 'proposed_activity', label: 'Proposed Activity', w: 160, align: 'left' },
+      { key: 'venue', label: 'Venue', w: 100, align: 'left' },
+      { key: 'environmental_fee', label: 'Environmental Fee', w: 130, align: 'left' },
     ];
 
     const { cols, tableWidth } = fitColumnsToPage(baseCols, PAGE.width, 65);
@@ -312,9 +311,10 @@ async function downloadPDF(req, res) {
     doc.fillColor('#111827').font('Helvetica-Bold').fontSize(14);
     doc.text(`TOTAL ENVIRONMENTAL FEE: ${peso(totalFee)}`, TABLE_LEFT, y + 10, {
       width: tableWidth,
-      align: 'right',
+      align: 'left',
       lineBreak: false,
       ellipsis: true,
+      
     });
 
     doc.end();
