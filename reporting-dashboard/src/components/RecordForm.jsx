@@ -8,7 +8,8 @@ function RecordForm({ onSubmit }) {
     office_in_charge: '',
     proposed_activity: '',
     venue: '',
-    activity_date: new Date().toISOString().split('T')[0],
+    activity_date_from: new Date().toISOString().split('T')[0],
+    activity_date_to: new Date().toISOString().split('T')[0],
     time_in: '',
     time_out: '',
     no_of_participants: '',
@@ -49,7 +50,8 @@ function RecordForm({ onSubmit }) {
       !formData.office_in_charge ||
       !formData.proposed_activity ||
       !formData.venue ||
-      !formData.activity_date ||
+      !formData.activity_date_from ||
+      !formData.activity_date_to ||
       !formData.time_in ||
       !formData.time_out ||
       !formData.no_of_participants
@@ -88,7 +90,8 @@ function RecordForm({ onSubmit }) {
       office_in_charge: '',
       proposed_activity: '',
       venue: '',
-      activity_date: new Date().toISOString().split('T')[0],
+      activity_date_from: new Date().toISOString().split('T')[0],
+      activity_date_to: new Date().toISOString().split('T')[0],
       time_in: '',
       time_out: '',
       no_of_participants: '',
@@ -98,7 +101,7 @@ function RecordForm({ onSubmit }) {
 
   return (
     <div className="record-form">
-      <h2>📝 Add Record</h2>
+      <h2> Add Record</h2>
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label>Record Date *</label>
@@ -124,7 +127,7 @@ function RecordForm({ onSubmit }) {
         </div>
 
         <div className="form-group">
-          <label>Office in Charge *</label>
+          <label>Officer in Charge *</label>
           <input
             type="text"
             name="office_in_charge"
@@ -159,15 +162,28 @@ function RecordForm({ onSubmit }) {
           />
         </div>
 
-        <div className="form-group">
-          <label>Activity Date *</label>
-          <input
-            type="date"
-            name="activity_date"
-            value={formData.activity_date}
-            onChange={handleChange}
-            required
-          />
+        <div className="form-row">
+          <div className="form-group">
+            <label>Activity Date From *</label>
+            <input
+              type="date"
+              name="activity_date_from"
+              value={formData.activity_date_from}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Activity Date To *</label>
+            <input
+              type="date"
+              name="activity_date_to"
+              value={formData.activity_date_to}
+              onChange={handleChange}
+              required
+            />
+          </div>
         </div>
 
         <div className="form-row">

@@ -14,7 +14,8 @@ exports.createRecord = async (req, res) => {
       office_in_charge,
       proposed_activity,
       venue,
-      activity_date,
+      activity_date_from,
+      activity_date_to,
       time_in,
       time_out,
       no_of_participants,
@@ -27,14 +28,15 @@ exports.createRecord = async (req, res) => {
       !office_in_charge ||
       !proposed_activity ||
       !venue ||
-      !activity_date ||
+      !activity_date_from ||
+      !activity_date_to ||
       !time_in ||
       !time_out ||
       !no_of_participants
     ) {
       return res.status(400).json({
         error:
-          'Missing required fields: date, organization_unit, office_in_charge, proposed_activity, venue, activity_date, time_in, time_out, no_of_participants',
+          'Missing required fields: date, organization_unit, office_in_charge, proposed_activity, venue, activity_date_from, activity_date_to, time_in, time_out, no_of_participants',
       });
     }
 
@@ -57,7 +59,7 @@ exports.createRecord = async (req, res) => {
       office_in_charge,
       proposed_activity,
       venue,
-      activity_date,
+      activity_date: activity_date_from,
       time_in,
       time_out,
       no_of_participants,
@@ -102,7 +104,8 @@ exports.updateRecord = async (req, res) => {
       office_in_charge,
       proposed_activity,
       venue,
-      activity_date,
+      activity_date_from,
+      activity_date_to,
       time_in,
       time_out,
       no_of_participants,
@@ -133,7 +136,7 @@ exports.updateRecord = async (req, res) => {
       office_in_charge: office_in_charge || existingRecord.office_in_charge,
       proposed_activity: proposed_activity || existingRecord.proposed_activity,
       venue: venue || existingRecord.venue,
-      activity_date: activity_date || existingRecord.activity_date,
+      activity_date: activity_date_from || existingRecord.activity_date,
       time_in: time_in || existingRecord.time_in,
       time_out: time_out || existingRecord.time_out,
       no_of_participants: no_of_participants || existingRecord.no_of_participants,
