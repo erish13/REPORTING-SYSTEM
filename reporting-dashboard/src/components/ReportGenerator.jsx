@@ -1,4 +1,6 @@
 ﻿import React, { useEffect, useState } from 'react';
+import { FiEye, FiX, FiClock } from 'react-icons/fi';
+import { FaFilePdf, FaFileExcel } from 'react-icons/fa';
 import { reportsAPI } from '../services/api';
 import '../styles/ReportGenerator.css';
 
@@ -55,7 +57,7 @@ function ReportGenerator({ period }) {
     try {
       setLoading(true);
       await reportsAPI.getExcel(period, '', '', '');
-      alert('📊 Excel downloaded successfully!');
+      alert('Excel downloaded successfully!');
     } catch (error) {
       console.error('Error downloading Excel:', error);
       alert(error?.response?.data?.error || error?.message || 'Failed to download Excel');
@@ -66,10 +68,10 @@ function ReportGenerator({ period }) {
 
   return (
     <div className="report-generator">
-      <h2>📄 Generate Reports</h2>
+      <h2>Generate Reports</h2>
 
       <div className="report-card">
-        <h3>📋 Report Information</h3>
+        <h3>Report Information</h3>
         <p>
           <strong>Period:</strong> {period.charAt(0).toUpperCase() + period.slice(1)}
         </p>
@@ -80,20 +82,20 @@ function ReportGenerator({ period }) {
 
       <div className="report-actions">
         <button className="btn btn-primary" onClick={handlePreviewPDF} disabled={loading}>
-          {loading ? '⏳ Processing...' : '👁️ Preview PDF'}
+          {loading ? <><FiClock style={{ marginRight: '6px' }} /> Processing...</> : <><FiEye style={{ marginRight: '6px' }} /> Preview PDF</>}
         </button>
 
         <button className="btn btn-success" onClick={handleDownloadPDF} disabled={!pdfUrl || loading}>
-          📥 Download PDF
+          <FaFilePdf style={{ marginRight: '6px' }} /> Download PDF
         </button>
 
         <button className="btn btn-success" onClick={handleDownloadExcel} disabled={loading}>
-          {loading ? '⏳ Processing...' : '📥 Download Excel'}
+          {loading ? <><FiClock style={{ marginRight: '6px' }} /> Processing...</> : <><FaFileExcel style={{ marginRight: '6px' }} /> Download Excel</>}
         </button>
 
         {pdfUrl && (
           <button className="btn btn-secondary" onClick={handleClosePreview} disabled={loading}>
-            ✖ Close Preview
+            <FiX style={{ marginRight: '6px' }} /> Close Preview
           </button>
         )}
       </div>

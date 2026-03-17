@@ -96,6 +96,11 @@ function App() {
     }
   };
 
+  const handleEditRecord = (id) => {
+    alert(`Edit functionality for record ${id} will be implemented soon`);
+    // TODO: Implement edit modal or redirect to edit page
+  };
+
   useEffect(() => {
     if (isAuthenticated) {
       loadRecords();
@@ -114,7 +119,7 @@ function App() {
           <h1>🌿 Environmental Guarantee and Activity Permit</h1>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="tab-button active" type="button">
-              📊 Dashboard
+              Dashboard
             </button>
             <button className="tab-button" onClick={logout} type="button">
               🚪 Logout
@@ -130,7 +135,7 @@ function App() {
           </aside>
           <div className="content-area">
             <FilterBar onFilter={handleFilter} activePeriod={filterPeriod} />
-            <RecordTable records={records} loading={loading} onDelete={handleDeleteRecord} />
+            <RecordTable records={records} loading={loading} onDelete={handleDeleteRecord} onEdit={handleEditRecord} />
           </div>
           <aside className="sidebar right-sidebar">
             <ReportGenerator period={filterPeriod} />

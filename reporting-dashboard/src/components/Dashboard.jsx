@@ -6,7 +6,7 @@ function Dashboard() {
     <div className="dashboard-container">
       <div className="dashboard-tabs">
         <button className="active" type="button">
-          📊 Dashboard
+          Dashboard
         </button>
       </div>
 

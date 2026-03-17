@@ -11,3 +11,11 @@
   height: 80vh;
   border: 0;
 }
+
+/* Button styles for inline icons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}

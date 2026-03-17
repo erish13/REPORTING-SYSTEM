@@ -51,6 +51,10 @@
 }
 
 .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   padding: 10px 15px;
   border: none;
   border-radius: 4px;

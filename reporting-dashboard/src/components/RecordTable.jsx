@@ -1,8 +1,33 @@
-﻿import React from 'react';
+﻿import React, { useState } from 'react';
+import { FiEye, FiEdit2, FiTrash2 } from 'react-icons/fi';
 import '../styles/RecordTable.css';
 
-function RecordTable({ records = [], loading = false, onDelete }) {
+function RecordTable({ records = [], loading = false, onDelete, onEdit }) {
+  const [selectedRecord, setSelectedRecord] = useState(null);
+
   const formatDate = (value) => (value ? new Date(value).toLocaleDateString('en-PH') : '');
+
+  const formatDateTime = (value) => (value ? new Date(value).toLocaleString('en-PH') : '');
+
+  const formatTime = (time) => {
+    if (!time) return '';
+    const [hours, minutes] = time.split(':');
+    let hour = parseInt(hours, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    if (hour > 12) {
+      hour = hour - 12;
+    } else if (hour === 0) {
+      hour = 12;
+    }
+    return `${String(hour).padStart(2, '0')}:${minutes} ${ampm}`;
+  };
+
+  // Truncate text to 10 characters with ellipsis
+  const truncate = (text, length = 10) => {
+    if (!text) return '';
+    const str = String(text);
+    return str.length > length ? `${str.substring(0, length)}...` : str;
+  };
 
   // Amount only (no ₱ here) for accounting-style layout in the cell
   const formatAmount = (value) =>
@@ -13,7 +38,7 @@ function RecordTable({ records = [], loading = false, onDelete }) {
 
   return (
     <div>
-      <h2>📋 All Records</h2>
+      <h2>All Records</h2>
       {loading ? (
         <p>Loading records...</p>
       ) : (
@@ -44,10 +69,10 @@ function RecordTable({ records = [], loading = false, onDelete }) {
                 records.map((r) => (
                   <tr key={r.id}>
                     <td>{formatDate(r.date)}</td>
-                    <td>{r.organization_unit}</td>
-                    <td>{r.office_in_charge}</td>
-                    <td>{r.proposed_activity}</td>
-                    <td>{r.venue}</td>
+                    <td>{truncate(r.organization_unit)}</td>
+                    <td>{truncate(r.office_in_charge)}</td>
+                    <td>{truncate(r.proposed_activity)}</td>
+                    <td>{truncate(r.venue)}</td>
 
                     {/* ✅ Accounting style: ₱ left, amount right */}
                     <td className="money fee-col">
@@ -58,8 +83,29 @@ function RecordTable({ records = [], loading = false, onDelete }) {
                     </td>
 
                     <td className="actions">
-                      <button type="button" className="btn-delete" onClick={() => onDelete?.(r.id)}>
-                        Delete
+                      <button 
+                        type="button" 
+                        className="btn-action btn-view" 
+                        title="View Details"
+                        onClick={() => setSelectedRecord(r)}
+                      >
+                        <FiEye size={16} />
+                      </button>
+                      <button 
+                        type="button" 
+                        className="btn-action btn-edit" 
+                        title="Edit"
+                        onClick={() => onEdit?.(r.id)}
+                      >
+                        <FiEdit2 size={16} />
+                      </button>
+                      <button 
+                        type="button" 
+                        className="btn-action btn-delete" 
+                        title="Delete"
+                        onClick={() => onDelete?.(r.id)}
+                      >
+                        <FiTrash2 size={16} />
                       </button>
                     </td>
                   </tr>
@@ -67,6 +113,70 @@ function RecordTable({ records = [], loading = false, onDelete }) {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {selectedRecord && (
+        <div className="modal-overlay" onClick={() => setSelectedRecord(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Record Details</h2>
+              <button 
+                type="button" 
+                className="btn-close" 
+                onClick={() => setSelectedRecord(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="detail-row">
+                <label>Record Date:</label>
+                <span>{formatDate(selectedRecord.date)}</span>
+              </div>
+              <div className="detail-row">
+                <label>Organization/Unit:</label>
+                <span>{selectedRecord.organization_unit}</span>
+              </div>
+              <div className="detail-row">
+                <label>Officer in Charge:</label>
+                <span>{selectedRecord.office_in_charge}</span>
+              </div>
+              <div className="detail-row">
+                <label>Proposed Activity:</label>
+                <span>{selectedRecord.proposed_activity}</span>
+              </div>
+              <div className="detail-row">
+                <label>Venue:</label>
+                <span>{selectedRecord.venue}</span>
+              </div>
+              <div className="detail-row">
+                <label>Activity Date:</label>
+                <span>{formatDate(selectedRecord.activity_date)}</span>
+              </div>
+              <div className="detail-row">
+                <label>Time In:</label>
+                <span>{formatTime(selectedRecord.time_in)}</span>
+              </div>
+              <div className="detail-row">
+                <label>Time Out:</label>
+                <span>{formatTime(selectedRecord.time_out)}</span>
+              </div>
+              <div className="detail-row">
+                <label>No. of Participants:</label>
+                <span>{selectedRecord.no_of_participants}</span>
+              </div>
+              <div className="detail-row">
+                <label>Environmental Fee:</label>
+                <span>₱ {formatAmount(selectedRecord.environmental_fee)}</span>
+              </div>
+              <div className="detail-row">
+                <label>Created At:</label>
+                <span>{formatDateTime(selectedRecord.created_at)}</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

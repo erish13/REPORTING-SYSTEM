@@ -1,4 +1,5 @@
 ﻿import React, { useState } from 'react';
+import { FiSave } from 'react-icons/fi';
 import '../styles/RecordForm.css';
 
 function RecordForm({ onSubmit }) {
@@ -122,6 +123,7 @@ function RecordForm({ onSubmit }) {
             placeholder="e.g., HR Department"
             value={formData.organization_unit}
             onChange={handleChange}
+            maxLength="25"
             required
           />
         </div>
@@ -134,6 +136,7 @@ function RecordForm({ onSubmit }) {
             placeholder="e.g., Ms. Jane Doe"
             value={formData.office_in_charge}
             onChange={handleChange}
+            maxLength="25"
             required
           />
         </div>
@@ -145,6 +148,7 @@ function RecordForm({ onSubmit }) {
             placeholder="Describe the activity"
             value={formData.proposed_activity}
             onChange={handleChange}
+            maxLength="25"
             rows="2"
             required
           />
@@ -158,6 +162,7 @@ function RecordForm({ onSubmit }) {
             placeholder="e.g., Conference Room A"
             value={formData.venue}
             onChange={handleChange}
+            maxLength="25"
             required
           />
         </div>
@@ -247,7 +252,7 @@ function RecordForm({ onSubmit }) {
         </div>
 
         <button type="submit" className="btn btn-primary">
-          💾 Save Record
+          <FiSave style={{ marginRight: '8px' }} /> Save Record
         </button>
       </form>
     </div>
