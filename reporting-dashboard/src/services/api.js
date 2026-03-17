@@ -30,6 +30,19 @@ api.interceptors.response.use(
   }
 );
 
+// helper for browser download
+const saveBlob = (blob, filename, mimeType) => {
+  const fileBlob = new Blob([blob], { type: mimeType });
+  const url = window.URL.createObjectURL(fileBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+};
+
 // Auth API
 export const authAPI = {
   login: (email, password) => api.post('/auth/login', { email, password }),
@@ -49,26 +62,14 @@ export const recordsAPI = {
   getSummary: () => api.get('/records/summary/stats'),
 };
 
-// helper for browser download
-const saveBlob = (blob, filename, mimeType) => {
-  const fileBlob = new Blob([blob], { type: mimeType });
-  const url = window.URL.createObjectURL(fileBlob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.URL.revokeObjectURL(url);
-};
-
 // Reports API
 export const reportsAPI = {
-  getPDF: async (period, startDate = '', endDate = '', type = '') => {
+  // ✅ Preview mode: return the PDF blob (component will create blob URL)
+  getPDF: async (period, startDate = '', endDate = '') => {
     const response = await api.get('/reports/pdf', {
-      params: { period, startDate, endDate, type },
+      params: { period, startDate, endDate },
       responseType: 'blob',
-      validateStatus: () => true, // handle non-200 manually
+      timeout: 60000,
     });
 
     if (response.status !== 200) {
@@ -84,15 +85,16 @@ export const reportsAPI = {
       throw new Error('Empty PDF file received');
     }
 
-    saveBlob(response.data, `report-${period || 'custom'}.pdf`, 'application/pdf');
-    return true;
+    // ✅ return blob for preview
+    return response.data;
   },
 
+  // keep your existing getExcel/getSummary/getArchived... functions unchanged
   getExcel: async (period, startDate = '', endDate = '', type = '') => {
     const response = await api.get('/reports/excel', {
       params: { period, startDate, endDate, type },
       responseType: 'blob',
-      validateStatus: () => true, // handle non-200 manually
+      validateStatus: () => true, // (you may keep this, but optional)
     });
 
     if (response.status !== 200) {

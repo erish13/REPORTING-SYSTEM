@@ -1,5 +1,6 @@
 const Record = require('../models/Record');
 const { getDateRange } = require('../utils/dateUtils');
+const db = require('../config/db'); // ✅ add DB access for DB-side filtering
 
 /**
  * CREATE: Add a new record
@@ -157,34 +158,76 @@ exports.deleteRecord = async (req, res) => {
   }
 };
 
+/**
+ * FILTER: Fix "Today" not showing by using DB-side date filters (MySQL/MariaDB)
+ * GET /api/records/filter/query?period=daily|weekly|monthly|custom&startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
+ *
+ * NOTE:
+ * - Uses created_at for period filtering (consistent with reports controller).
+ * - If you want to filter by the "date" column instead, replace created_at with date in the SQL.
+ */
 exports.filterRecords = async (req, res) => {
   try {
-    const { period, startDate, endDate, type } = req.query;
+    const { period, startDate, endDate } = req.query;
 
     if (!period) {
       return res.status(400).json({ error: 'Period parameter required: daily, weekly, monthly, custom' });
     }
 
-    const { startDate: start, endDate: end } = getDateRange(period, startDate, endDate);
-    let records = await Record.getByDateRange(start, end);
+    let sql = `
+      SELECT
+        id,
+        date,
+        organization_unit,
+        office_in_charge,
+        proposed_activity,
+        venue,
+        activity_date,
+        time_in,
+        time_out,
+        no_of_participants,
+        environmental_fee,
+        created_at
+      FROM records
+      WHERE 1=1
+    `;
+    const params = [];
 
-    if (type) records = records.filter((r) => r.type === type);
-
-    const summary = { income: { total: 0, count: 0 }, expense: { total: 0, count: 0 }, net: 0 };
-
-    records.forEach((record) => {
-      if (record.type === 'income') {
-        summary.income.total += parseFloat(record.amount);
-        summary.income.count += 1;
-      } else if (record.type === 'expense') {
-        summary.expense.total += parseFloat(record.amount);
-        summary.expense.count += 1;
+    if (period === 'daily') {
+      sql += ' AND DATE(created_at) = CURDATE()';
+    } else if (period === 'weekly') {
+      sql += ' AND YEARWEEK(created_at, 1) = YEARWEEK(CURDATE(), 1)';
+    } else if (period === 'monthly') {
+      sql += ' AND YEAR(created_at) = YEAR(CURDATE()) AND MONTH(created_at) = MONTH(CURDATE())';
+    } else if (period === 'yearly') {
+      sql += ' AND YEAR(created_at) = YEAR(CURDATE())';
+    } else if (period === 'custom') {
+      // keep old behavior but DB-side + inclusive by date
+      if (!startDate || !endDate) {
+        return res.status(400).json({ error: 'Custom period requires startDate and endDate' });
       }
+      sql += ' AND DATE(created_at) BETWEEN ? AND ?';
+      params.push(startDate, endDate);
+    } else {
+      // fallback to old JS util if you still pass other periods
+      const { startDate: start, endDate: end } = getDateRange(period, startDate, endDate);
+      let records = await Record.getByDateRange(start, end);
+      return res.status(200).json({ success: true, data: records });
+    }
+
+    sql += ' ORDER BY created_at DESC';
+
+    const [records] = await db.execute(sql, params);
+
+    // Keep response shape expected by your UI
+    return res.status(200).json({
+      success: true,
+      data: records || [],
+      // keep summary field so frontend won't break if it expects it
+      summary: {
+        total_records: (records || []).length,
+      },
     });
-
-    summary.net = summary.income.total - summary.expense.total;
-
-    res.status(200).json({ success: true, data: records, summary });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

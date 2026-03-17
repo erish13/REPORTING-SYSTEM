@@ -6,65 +6,42 @@ function isValidDate(d) {
   return d instanceof Date && !Number.isNaN(d.getTime());
 }
 
-function getDateFilter(period, startDate, endDate) {
-  const today = new Date();
-  let from = null;
-  let to = null;
-
-  if (period === 'daily') {
-    from = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    to = new Date(from);
-    to.setDate(to.getDate() + 1);
-  } else if (period === 'weekly') {
-    const day = today.getDay(); // 0 Sunday
-    from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - day);
-    to = new Date(from);
-    to.setDate(to.getDate() + 7);
-  } else if (period === 'monthly') {
-    from = new Date(today.getFullYear(), today.getMonth(), 1);
-    to = new Date(today.getFullYear(), today.getMonth() + 1, 1);
-  } else if (period === 'yearly') {
-    from = new Date(today.getFullYear(), 0, 1);
-    to = new Date(today.getFullYear() + 1, 0, 1);
-  } else if (period === 'custom') {
-    if (!startDate || !endDate) throw new Error('Custom period requires startDate and endDate');
-    from = new Date(startDate);
-    to = new Date(endDate);
-    if (!isValidDate(from) || !isValidDate(to)) throw new Error('Invalid startDate or endDate');
-    to.setDate(to.getDate() + 1); // include whole end date
-  } else {
-    throw new Error('Invalid period value');
-  }
-
-  return { from, to };
-}
-
 function formatDate(value) {
-  if (!value) return '-';
+  if (!value) return '';
   const d = new Date(value);
   if (!isValidDate(d)) return String(value);
-  return d.toLocaleDateString();
+  return d.toLocaleDateString('en-PH');
 }
 
 function formatDateTime(value) {
-  if (!value) return '-';
+  if (!value) return '';
   const d = new Date(value);
   if (!isValidDate(d)) return String(value);
-  return d.toLocaleString();
+  return d.toLocaleString('en-PH');
 }
 
 function peso(v) {
+  // If ₱ shows as ± in your PDF viewer, change to "PHP"
   return `₱ ${Number(v || 0).toFixed(2)}`;
+  // return `PHP ${Number(v || 0).toFixed(2)}`;
 }
 
-function trimText(text, maxChars = 22) {
-  const t = String(text ?? '-');
-  return t.length > maxChars ? `${t.slice(0, maxChars - 3)}...` : t;
+function clamp(text, maxChars) {
+  const s = String(text ?? '');
+  if (s.length <= maxChars) return s;
+  return `${s.slice(0, Math.max(0, maxChars - 3))}...`;
 }
 
+/**
+ * Record Date-based filtering (YOU CHOSE: date)
+ *
+ * Assumes MySQL/MariaDB.
+ * - daily:   DATE(date) = CURDATE()
+ * - weekly:  YEARWEEK(date, 1) = YEARWEEK(CURDATE(), 1)  (ISO week, Monday start)
+ * - monthly: YEAR(date)=YEAR(CURDATE()) AND MONTH(date)=MONTH(CURDATE())
+ * - custom:  DATE(date) BETWEEN ? AND ?
+ */
 async function fetchRecords(period, startDate, endDate) {
-  const { from, to } = getDateFilter(period, startDate, endDate);
-
   let sql = `
     SELECT
       id,
@@ -84,15 +61,60 @@ async function fetchRecords(period, startDate, endDate) {
   `;
   const params = [];
 
-  if (from && to) {
-    sql += ' AND created_at >= ? AND created_at < ?';
-    params.push(from, to);
+  if (period === 'daily') {
+    sql += ' AND DATE(date) = CURDATE()';
+  } else if (period === 'weekly') {
+    sql += ' AND YEARWEEK(date, 1) = YEARWEEK(CURDATE(), 1)';
+  } else if (period === 'monthly') {
+    sql += ' AND YEAR(date) = YEAR(CURDATE()) AND MONTH(date) = MONTH(CURDATE())';
+  } else if (period === 'yearly') {
+    sql += ' AND YEAR(date) = YEAR(CURDATE())';
+  } else if (period === 'custom') {
+    if (!startDate || !endDate) throw new Error('Custom period requires startDate and endDate');
+    sql += ' AND DATE(date) BETWEEN ? AND ?';
+    params.push(startDate, endDate);
+  } else {
+    throw new Error('Invalid period value');
   }
 
-  sql += ' ORDER BY created_at DESC';
+  sql += ' ORDER BY date DESC, created_at DESC';
 
   const [rows] = await db.execute(sql, params);
   return rows || [];
+}
+
+/**
+ * Helper: ensure table fits page width and is centered.
+ */
+function fitColumnsToPage(cols, pageWidth, minW = 60) {
+  const total = cols.reduce((s, c) => s + c.w, 0);
+  if (total <= pageWidth) return { cols, tableWidth: total };
+
+  const scale = pageWidth / total;
+
+  const scaled = cols.map((c) => ({
+    ...c,
+    w: Math.max(minW, Math.floor(c.w * scale)),
+  }));
+
+  // fix rounding drift
+  let sum = scaled.reduce((s, c) => s + c.w, 0);
+  let diff = pageWidth - sum;
+
+  const order = ['proposed_activity', 'office_in_charge', 'organization_unit', 'venue', 'environmental_fee', 'record_date'];
+  let guard = 0;
+
+  while (diff !== 0 && guard < 4000) {
+    const key = order[guard % order.length];
+    const col = scaled.find((c) => c.key === key);
+    if (col && col.w > minW) {
+      col.w += diff > 0 ? 1 : -1;
+      diff += diff > 0 ? -1 : 1;
+    }
+    guard++;
+  }
+
+  return { cols: scaled, tableWidth: scaled.reduce((s, c) => s + c.w, 0) };
 }
 
 /**
@@ -122,160 +144,190 @@ async function getSummary(req, res) {
 
 /**
  * GET /api/reports/pdf
+ * A4 portrait, centered table, uses Record Date (date) filtering
  */
 async function downloadPDF(req, res) {
   try {
     const { period = 'daily', startDate = '', endDate = '' } = req.query;
+
+    if (period === 'custom' && (!startDate || !endDate)) {
+      return res.status(400).json({ error: 'Custom period requires startDate and endDate' });
+    }
+
     const rows = await fetchRecords(period, startDate, endDate);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="records-report-${period}.pdf"`);
 
-    const doc = new PDFDocument({ size: 'A4', margin: 28 });
+    const doc = new PDFDocument({ size: 'A4', layout: 'portrait', margin: 36 });
+
+    doc.on('error', (e) => {
+      console.error('[PDF] doc error:', e);
+      try { res.end(); } catch (_) {}
+    });
+
     doc.pipe(res);
 
     const PAGE = {
-      left: 28,
-      right: 28,
-      top: 28,
-      bottom: 28,
-      width: doc.page.width - 56,
-      rowHeight: 24,
-      headerHeight: 24,
+      left: doc.page.margins.left,
+      right: doc.page.margins.right,
+      top: doc.page.margins.top,
+      bottom: doc.page.margins.bottom,
+      width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
+      rowH: 26,
+      headerH: 30,
     };
 
-    const cols = [
-      { key: 'record_date', label: 'Record Date', w: 80, align: 'left' },
-      { key: 'organization_unit', label: 'Organization Unit', w: 95, align: 'left' },
-      { key: 'office_in_charge', label: 'Office in Charge', w: 95, align: 'left' },
-      { key: 'proposed_activity', label: 'Proposed Activity', w: 110, align: 'left' },
-      { key: 'venue', label: 'Venue', w: 85, align: 'left' },
-      { key: 'environmental_fee', label: 'Environmental Fee', w: PAGE.width - (80 + 95 + 95 + 110 + 85), align: 'right' },
+    // Base widths close to your dashboard columns
+    const baseCols = [
+      { key: 'record_date', label: 'Record Date', w: 95, align: 'left' },
+      { key: 'organization_unit', label: 'Org Unit', w: 110, align: 'left' },
+      { key: 'office_in_charge', label: 'Office in Charge', w: 135, align: 'left' },
+      { key: 'proposed_activity', label: 'Proposed Activity', w: 175, align: 'left' },
+      { key: 'venue', label: 'Venue', w: 105, align: 'left' },
+      { key: 'environmental_fee', label: 'Environment\nal', w: 95, align: 'right' },
     ];
 
-    const tableWidth = cols.reduce((s, c) => s + c.w, 0);
+    const { cols, tableWidth } = fitColumnsToPage(baseCols, PAGE.width, 65);
+    const TABLE_LEFT = PAGE.left + Math.max(0, Math.floor((PAGE.width - tableWidth) / 2));
 
-    const drawTitle = () => {
-      doc.font('Helvetica-Bold').fillColor('#1F2937').fontSize(18).text('All Records', PAGE.left, PAGE.top);
-      doc.font('Helvetica').fillColor('#6B7280').fontSize(9);
-      doc.text(`Period: ${period}`, PAGE.left, PAGE.top + 24);
-      doc.text(`Generated: ${new Date().toLocaleString()}`, PAGE.left + 120, PAGE.top + 24);
-      doc.text(`Total: ${rows.length}`, PAGE.left + 420, PAGE.top + 24, { width: 100, align: 'right' });
-    };
+    // Title & meta (like your sample)
+    doc.fillColor('#111827').font('Helvetica-Bold').fontSize(26).text('All Records', PAGE.left, PAGE.top);
 
-    const drawHeader = (y) => {
-      doc.save();
-      doc.rect(PAGE.left, y, tableWidth, PAGE.headerHeight).fill('#1E3A8A');
-      doc.restore();
+    doc.fillColor('#6B7280').font('Helvetica').fontSize(10);
+    const metaY = PAGE.top + 34;
+    doc.text(`Period: ${period}`, PAGE.left, metaY);
+    doc.text(`Generated: ${new Date().toLocaleString('en-PH')}`, PAGE.left + 170, metaY);
+    doc.text(`Total: ${rows.length}`, PAGE.left, metaY, { width: PAGE.width, align: 'right' });
 
-      let x = PAGE.left;
-      doc.font('Helvetica-Bold').fontSize(9).fillColor('#FFFFFF');
+    let y = PAGE.top + 72;
 
-      cols.forEach((c) => {
-        doc.text(c.label, x + 6, y + 7, {
-          width: c.w - 12,
-          align: c.align === 'right' ? 'right' : 'left',
-          ellipsis: true,
-        });
-        x += c.w;
-      });
+    // Header row
+    doc.save();
+    doc.rect(TABLE_LEFT, y, tableWidth, PAGE.headerH).fill('#1E3A8A');
+    doc.restore();
 
-      // header borders
-      x = PAGE.left;
-      doc.strokeColor('#FFFFFF').lineWidth(0.4);
-      cols.forEach((c) => {
-        doc.moveTo(x, y).lineTo(x, y + PAGE.headerHeight).stroke();
-        x += c.w;
-      });
-      doc.moveTo(x, y).lineTo(x, y + PAGE.headerHeight).stroke();
+    doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(9);
 
-      return y + PAGE.headerHeight;
-    };
+    let x = TABLE_LEFT;
+    cols.forEach((c) => {
+      doc.text(c.label, x + 6, y + 7, { width: c.w - 12, align: 'center' });
+      x += c.w;
+    });
 
-    const drawRow = (y, row, index) => {
-      if (index % 2 === 0) {
-        doc.save();
-        doc.rect(PAGE.left, y, tableWidth, PAGE.rowHeight).fill('#F8FAFC');
-        doc.restore();
-      }
+    doc.strokeColor('#FFFFFF').lineWidth(0.4);
+    x = TABLE_LEFT;
+    cols.forEach((c) => {
+      doc.moveTo(x, y).lineTo(x, y + PAGE.headerH).stroke();
+      x += c.w;
+    });
+    doc.moveTo(x, y).lineTo(x, y + PAGE.headerH).stroke();
 
-      const fee = Number(row.environmental_fee || 0);
+    y += PAGE.headerH;
 
-      const data = {
-        record_date: formatDate(row.date),
-        organization_unit: trimText(row.organization_unit, 18),
-        office_in_charge: trimText(row.office_in_charge, 18),
-        proposed_activity: trimText(row.proposed_activity, 22),
-        venue: trimText(row.venue, 16),
-        environmental_fee: peso(fee),
-      };
-
-      let x = PAGE.left;
-      doc.font('Helvetica').fontSize(9).fillColor('#111827');
-
-      cols.forEach((c) => {
-        doc.text(data[c.key], x + 6, y + 7, {
-          width: c.w - 12,
-          align: c.align,
-          ellipsis: true,
-        });
-        x += c.w;
-      });
-
-      // row border
-      doc.strokeColor('#D1D5DB').lineWidth(0.35);
-      doc.rect(PAGE.left, y, tableWidth, PAGE.rowHeight).stroke();
-
-      // vertical lines
-      x = PAGE.left;
-      cols.forEach((c) => {
-        doc.moveTo(x, y).lineTo(x, y + PAGE.rowHeight).stroke();
-        x += c.w;
-      });
-      doc.moveTo(x, y).lineTo(x, y + PAGE.rowHeight).stroke();
-
-      return y + PAGE.rowHeight;
-    };
-
-    drawTitle();
-
-    let y = PAGE.top + 46;
-    y = drawHeader(y);
-
+    // Body
     let totalFee = 0;
 
     for (let i = 0; i < rows.length; i++) {
-      if (y + PAGE.rowHeight > doc.page.height - PAGE.bottom - 40) {
+      if (y + PAGE.rowH > doc.page.height - PAGE.bottom - 70) {
         doc.addPage();
-        drawTitle();
-        y = drawHeader(PAGE.top + 46);
+        y = PAGE.top;
+
+        // re-draw header on new page
+        doc.save();
+        doc.rect(TABLE_LEFT, y, tableWidth, PAGE.headerH).fill('#1E3A8A');
+        doc.restore();
+
+        doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(9);
+
+        let hx = TABLE_LEFT;
+        cols.forEach((c) => {
+          doc.text(c.label, hx + 6, y + 7, { width: c.w - 12, align: 'center' });
+          hx += c.w;
+        });
+
+        doc.strokeColor('#FFFFFF').lineWidth(0.4);
+        hx = TABLE_LEFT;
+        cols.forEach((c) => {
+          doc.moveTo(hx, y).lineTo(hx, y + PAGE.headerH).stroke();
+          hx += c.w;
+        });
+        doc.moveTo(hx, y).lineTo(hx, y + PAGE.headerH).stroke();
+
+        y += PAGE.headerH;
       }
 
-      totalFee += Number(rows[i].environmental_fee || 0);
-      y = drawRow(y, rows[i], i);
+      if (i % 2 === 0) {
+        doc.save();
+        doc.rect(TABLE_LEFT, y, tableWidth, PAGE.rowH).fill('#F8FAFC');
+        doc.restore();
+      }
+
+      const r = rows[i];
+      const fee = Number(r.environmental_fee || 0);
+      totalFee += fee;
+
+      const data = {
+        record_date: formatDate(r.date),
+        organization_unit: clamp(r.organization_unit, 18),
+        office_in_charge: clamp(r.office_in_charge, 18),
+        proposed_activity: clamp(r.proposed_activity, 26),
+        venue: clamp(r.venue, 16),
+        environmental_fee: peso(fee),
+      };
+
+      x = TABLE_LEFT;
+      cols.forEach((c) => {
+        const isFee = c.key === 'environmental_fee';
+        doc.fillColor('#111827').font('Helvetica').fontSize(isFee ? 8.5 : 9);
+
+        doc.text(data[c.key], x + 6, y + 8, {
+          width: c.w - 12,
+          align: c.align,
+          lineBreak: false,
+          ellipsis: true,
+        });
+
+        x += c.w;
+      });
+
+      doc.strokeColor('#D1D5DB').lineWidth(0.35);
+      doc.rect(TABLE_LEFT, y, tableWidth, PAGE.rowH).stroke();
+
+      x = TABLE_LEFT;
+      cols.forEach((c) => {
+        doc.moveTo(x, y).lineTo(x, y + PAGE.rowH).stroke();
+        x += c.w;
+      });
+      doc.moveTo(x, y).lineTo(x, y + PAGE.rowH).stroke();
+
+      y += PAGE.rowH;
     }
 
-    if (y + 30 > doc.page.height - PAGE.bottom) {
-      doc.addPage();
-      y = PAGE.top;
-    }
+    // Total line
+    y += 10;
+    doc.strokeColor('#9CA3AF').lineWidth(0.7);
+    doc.moveTo(TABLE_LEFT, y).lineTo(TABLE_LEFT + tableWidth, y).stroke();
 
-    doc.moveTo(PAGE.left, y + 8).lineTo(PAGE.left + tableWidth, y + 8).strokeColor('#9CA3AF').stroke();
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('#111827');
-    doc.text(`TOTAL ENVIRONMENTAL FEE: ${peso(totalFee)}`, PAGE.left, y + 14, {
-      width: tableWidth - 6,
+    doc.fillColor('#111827').font('Helvetica-Bold').fontSize(14);
+    doc.text(`TOTAL ENVIRONMENTAL FEE: ${peso(totalFee)}`, TABLE_LEFT, y + 10, {
+      width: tableWidth,
       align: 'right',
+      lineBreak: false,
+      ellipsis: true,
     });
 
     doc.end();
   } catch (error) {
     console.error('downloadPDF error:', error);
-    return res.status(400).json({ error: error.message || 'Failed to generate PDF' });
+    if (!res.headersSent) return res.status(500).json({ error: error.message || 'Failed to generate PDF' });
+    try { res.end(); } catch (_) {}
   }
 }
 
 /**
  * GET /api/reports/excel
+ * Keep as-is or adjust later (still uses fetchRecords which now filters by date).
  */
 async function downloadExcel(req, res) {
   try {
@@ -292,21 +344,12 @@ async function downloadExcel(req, res) {
       { header: 'Proposed Activity', key: 'proposed_activity', width: 35 },
       { header: 'Venue', key: 'venue', width: 20 },
       { header: 'Environmental Fee', key: 'environmental_fee', width: 20 },
-      { header: 'Activity Date', key: 'activity_date', width: 14 },
-      { header: 'Time In', key: 'time_in', width: 12 },
-      { header: 'Time Out', key: 'time_out', width: 12 },
-      { header: 'Participants', key: 'no_of_participants', width: 14 },
       { header: 'Created At', key: 'created_at', width: 22 },
     ];
 
-    // Header style
     const header = sheet.getRow(1);
     header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    header.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FF1E3A8A' },
-    };
+    header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
     header.alignment = { vertical: 'middle', horizontal: 'center' };
     header.height = 22;
 
@@ -323,45 +366,19 @@ async function downloadExcel(req, res) {
         proposed_activity: r.proposed_activity || '',
         venue: r.venue || '',
         environmental_fee: fee,
-        activity_date: formatDate(r.activity_date),
-        time_in: r.time_in || '',
-        time_out: r.time_out || '',
-        no_of_participants: Number(r.no_of_participants || 0),
         created_at: formatDateTime(r.created_at),
       });
 
-      // zebra rows
       if (index % 2 === 0) {
         row.eachCell((cell) => {
-          cell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFF8FAFC' },
-          };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
         });
       }
     });
 
-    // Currency format
     sheet.getColumn('environmental_fee').numFmt = '₱ #,##0.00';
-
-    // Borders + alignment
-    sheet.eachRow((row, rowNumber) => {
-      row.eachCell((cell) => {
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
-          left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
-          bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } },
-          right: { style: 'thin', color: { argb: 'FFD1D5DB' } },
-        };
-        if (rowNumber > 1) {
-          cell.alignment = { vertical: 'middle', horizontal: 'left' };
-        }
-      });
-    });
     sheet.getColumn('environmental_fee').alignment = { horizontal: 'right' };
 
-    // Total row
     sheet.addRow([]);
     const totalRow = sheet.addRow({
       proposed_activity: 'TOTAL ENVIRONMENTAL FEE',
@@ -370,10 +387,7 @@ async function downloadExcel(req, res) {
     totalRow.font = { bold: true };
     totalRow.getCell('environmental_fee').numFmt = '₱ #,##0.00';
 
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    );
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="records-report-${period}.xlsx"`);
 
     await workbook.xlsx.write(res);
