@@ -5,6 +5,7 @@ import FilterBar from './components/FilterBar';
 import ReportGenerator from './components/ReportGenerator';
 // Removed: ArchivedReports import
 import LoginForm from './components/LoginForm';
+import ResetPasswordForm from './components/ResetPasswordForm';
 import { recordsAPI } from './services/api';
 import './App.css';
 
@@ -19,6 +20,9 @@ function App() {
   const [filterPeriod, setFilterPeriod] = useState('daily');
   // Removed: activeTab state since Archived tab is removed
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
+
+  // Read reset token directly from URL (so it's always fresh)
+  const resetToken = new URLSearchParams(window.location.search).get('reset_token') || '';
 
   const logout = () => {
     localStorage.removeItem('token');
@@ -104,6 +108,18 @@ function App() {
   }, [isAuthenticated]);
 
   if (!isAuthenticated) {
+    if (resetToken) {
+      return (
+        <ResetPasswordForm
+          token={resetToken}
+          onSuccess={() => {
+            // Remove token from URL without reload
+            window.history.replaceState({}, '', window.location.pathname);
+            setIsAuthenticated(false);
+          }}
+        />
+      );
+    }
     return <LoginForm onSuccess={() => setIsAuthenticated(true)} />;
   }
 

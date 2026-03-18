@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { authAPI } from '../services/api';
+import ForgotPasswordForm from './ForgotPasswordForm';
 
 function LoginForm({ onSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,6 +22,10 @@ function LoginForm({ onSuccess }) {
       setLoading(false);
     }
   };
+
+  if (showForgot) {
+    return <ForgotPasswordForm onBack={() => setShowForgot(false)} />;
+  }
 
   return (
     <div style={{ maxWidth: 380, margin: '80px auto', padding: 20, border: '1px solid #ddd', borderRadius: 10 }}>
@@ -41,10 +47,17 @@ function LoginForm({ onSuccess }) {
           onChange={(e) => setPassword(e.target.value)}
           required
         />
-        <button style={{ width: '100%', padding: 10 }} type="submit" disabled={loading}>
+        <button style={{ width: '100%', padding: 10, marginBottom: 8 }} type="submit" disabled={loading}>
           {loading ? 'Signing in...' : 'Login'}
         </button>
       </form>
+      <button
+        style={{ width: '100%', padding: 10, background: 'transparent', border: 'none', cursor: 'pointer', color: '#1e3a8a', textDecoration: 'underline', fontSize: 13 }}
+        type="button"
+        onClick={() => setShowForgot(true)}
+      >
+        Forgot Password?
+      </button>
     </div>
   );
 }
