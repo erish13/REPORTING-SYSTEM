@@ -49,7 +49,8 @@ async function fetchRecords(period, startDate, endDate) {
       office_in_charge,
       proposed_activity,
       venue,
-      activity_date,
+      activity_date_from,
+      activity_date_to,
       time_in,
       time_out,
       no_of_participants,
@@ -158,7 +159,7 @@ async function downloadPDF(req, res) {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="records-report-${period}.pdf"`);
 
-    const doc = new PDFDocument({ size: 'A4', layout: 'portrait', margin: 36 });
+    const doc = new PDFDocument({ size: 'A4', layout: 'portrait', margin: 20 });
 
     doc.on('error', (e) => {
       console.error('[PDF] doc error:', e);
@@ -173,25 +174,28 @@ async function downloadPDF(req, res) {
       top: doc.page.margins.top,
       bottom: doc.page.margins.bottom,
       width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
-      rowH: 26,
-      headerH: 30,
+      rowH: 16,
+      headerH: 22,
     };
 
-    // Base widths close to your dashboard columns
+    // Base widths optimized for portrait A4
     const baseCols = [
-      { key: 'record_date', label: 'Record Date', w: 90, align: 'left' },
-      { key: 'organization_unit', label: 'Org Unit', w: 105, align: 'left' },
-      { key: 'office_in_charge', label: 'Office in Charge', w: 130, align: 'left' },
-      { key: 'proposed_activity', label: 'Proposed Activity', w: 160, align: 'left' },
-      { key: 'venue', label: 'Venue', w: 100, align: 'left' },
-      { key: 'environmental_fee', label: 'Environmental Fee', w: 130, align: 'left' },
+      { key: 'record_date', label: 'Rec. Date', w: 50, align: 'center' },
+      { key: 'organization_unit', label: 'Org/Unit', w: 50, align: 'left' },
+      { key: 'office_in_charge', label: 'Officer', w: 50, align: 'left' },
+      { key: 'proposed_activity', label: 'Activity', w: 65, align: 'left' },
+      { key: 'venue', label: 'Venue', w: 45, align: 'left' },
+      { key: 'activity_date', label: 'Act. Date', w: 85, align: 'center' },
+      { key: 'time_in', label: 'T. In', w: 40, align: 'center' },
+      { key: 'time_out', label: 'T. Out', w: 40, align: 'center' },
+      { key: 'environmental_fee', label: 'Fee', w: 60, align: 'right' },
     ];
 
     const { cols, tableWidth } = fitColumnsToPage(baseCols, PAGE.width, 65);
     const TABLE_LEFT = PAGE.left + Math.max(0, Math.floor((PAGE.width - tableWidth) / 2));
 
     // Title & meta (like your sample)
-    doc.fillColor('#111827').font('Helvetica-Bold').fontSize(26).text('All Records', PAGE.left, PAGE.top);
+    doc.fillColor('#1b5e3f').font('Helvetica-Bold').fontSize(26).text('All Records', PAGE.left, PAGE.top);
 
     doc.fillColor('#6B7280').font('Helvetica').fontSize(10);
     const metaY = PAGE.top + 34;
@@ -203,14 +207,14 @@ async function downloadPDF(req, res) {
 
     // Header row
     doc.save();
-    doc.rect(TABLE_LEFT, y, tableWidth, PAGE.headerH).fill('#1E3A8A');
+    doc.rect(TABLE_LEFT, y, tableWidth, PAGE.headerH).fill('#1b5e3f');
     doc.restore();
 
-    doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(9);
+    doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(6.5);
 
     let x = TABLE_LEFT;
     cols.forEach((c) => {
-      doc.text(c.label, x + 6, y + 7, { width: c.w - 12, align: 'center' });
+      doc.text(c.label, x + 2, y + 5, { width: c.w - 4, align: c.align });
       x += c.w;
     });
 
@@ -234,14 +238,14 @@ async function downloadPDF(req, res) {
 
         // re-draw header on new page
         doc.save();
-        doc.rect(TABLE_LEFT, y, tableWidth, PAGE.headerH).fill('#1E3A8A');
+        doc.rect(TABLE_LEFT, y, tableWidth, PAGE.headerH).fill('#1b5e3f');
         doc.restore();
 
-        doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(9);
+        doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(6.5);
 
         let hx = TABLE_LEFT;
         cols.forEach((c) => {
-          doc.text(c.label, hx + 6, y + 7, { width: c.w - 12, align: 'center' });
+          doc.text(c.label, hx + 2, y + 5, { width: c.w - 4, align: c.align });
           hx += c.w;
         });
 
@@ -266,22 +270,34 @@ async function downloadPDF(req, res) {
       const fee = Number(r.environmental_fee || 0);
       totalFee += fee;
 
+      const formatTime = (time) => {
+        if (!time) return '-';
+        const [hours, minutes] = time.split(':');
+        let hour = parseInt(hours, 10);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        if (hour > 12) hour = hour - 12;
+        else if (hour === 0) hour = 12;
+        return `${String(hour).padStart(2, '0')}:${minutes} ${ampm}`;
+      };
+
       const data = {
         record_date: formatDate(r.date),
-        organization_unit: clamp(r.organization_unit, 18),
-        office_in_charge: clamp(r.office_in_charge, 18),
-        proposed_activity: clamp(r.proposed_activity, 26),
-        venue: clamp(r.venue, 16),
+        organization_unit: clamp(r.organization_unit, 12),
+        office_in_charge: clamp(r.office_in_charge, 12),
+        proposed_activity: clamp(r.proposed_activity, 15),
+        venue: clamp(r.venue, 12),
+        activity_date: `${formatDate(r.activity_date_from) || '-'} to ${formatDate(r.activity_date_to) || '-'}`,
+        time_in: formatTime(r.time_in),
+        time_out: formatTime(r.time_out),
         environmental_fee: peso(fee),
       };
 
       x = TABLE_LEFT;
       cols.forEach((c) => {
-        const isFee = c.key === 'environmental_fee';
-        doc.fillColor('#111827').font('Helvetica').fontSize(isFee ? 8.5 : 9);
+        doc.fillColor('#111827').font('Helvetica').fontSize(6.5);
 
-        doc.text(data[c.key], x + 6, y + 8, {
-          width: c.w - 12,
+        doc.text(data[c.key], x + 2, y + 4, {
+          width: c.w - 4,
           align: c.align,
           lineBreak: false,
           ellipsis: true,

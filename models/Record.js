@@ -8,7 +8,8 @@ class Record {
       office_in_charge,
       proposed_activity,
       venue,
-      activity_date,
+      activity_date_from,
+      activity_date_to,
       time_in,
       time_out,
       no_of_participants,
@@ -18,8 +19,8 @@ class Record {
     const query = `
       INSERT INTO records 
       (date, organization_unit, office_in_charge, proposed_activity, 
-       venue, activity_date, time_in, time_out, no_of_participants, environmental_fee)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       venue, activity_date_from, activity_date_to, time_in, time_out, no_of_participants, environmental_fee)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const [result] = await pool.query(query, [
@@ -28,7 +29,8 @@ class Record {
       office_in_charge,
       proposed_activity,
       venue,
-      activity_date,
+      activity_date_from,
+      activity_date_to,
       time_in,
       time_out,
       no_of_participants,
@@ -42,9 +44,9 @@ class Record {
     const query = `
       SELECT 
         id, date, organization_unit, office_in_charge, proposed_activity,
-        venue, activity_date, time_in, time_out, no_of_participants, environmental_fee, created_at
+        venue, activity_date_from, activity_date_to, time_in, time_out, no_of_participants, environmental_fee, created_at
       FROM records
-      ORDER BY activity_date DESC
+      ORDER BY activity_date_from DESC
     `;
     const [rows] = await pool.query(query);
     return rows;
@@ -55,7 +57,7 @@ class Record {
       `
       SELECT 
         id, date, organization_unit, office_in_charge, proposed_activity,
-        venue, activity_date, time_in, time_out, no_of_participants, environmental_fee, created_at
+        venue, activity_date_from, activity_date_to, time_in, time_out, no_of_participants, environmental_fee, created_at
       FROM records
       WHERE id = ?
     `,
@@ -71,7 +73,8 @@ class Record {
       office_in_charge,
       proposed_activity,
       venue,
-      activity_date,
+      activity_date_from,
+      activity_date_to,
       time_in,
       time_out,
       no_of_participants,
@@ -82,7 +85,7 @@ class Record {
       `
       UPDATE records
       SET date = ?, organization_unit = ?, office_in_charge = ?, 
-          proposed_activity = ?, venue = ?, activity_date = ?, 
+          proposed_activity = ?, venue = ?, activity_date_from = ?, activity_date_to = ?,
           time_in = ?, time_out = ?, no_of_participants = ?, environmental_fee = ?
       WHERE id = ?
     `,
@@ -92,7 +95,8 @@ class Record {
         office_in_charge,
         proposed_activity,
         venue,
-        activity_date,
+        activity_date_from,
+        activity_date_to,
         time_in,
         time_out,
         no_of_participants,
@@ -116,10 +120,10 @@ class Record {
       `
       SELECT 
         id, date, organization_unit, office_in_charge, proposed_activity,
-        venue, activity_date, time_in, time_out, no_of_participants, environmental_fee, created_at
+        venue, activity_date_from, activity_date_to, time_in, time_out, no_of_participants, environmental_fee, created_at
       FROM records
-      WHERE activity_date BETWEEN ? AND ?
-      ORDER BY activity_date DESC
+      WHERE activity_date_from BETWEEN ? AND ?
+      ORDER BY activity_date_from DESC
     `,
       [startDate, endDate]
     );

@@ -51,17 +51,17 @@ function RecordTable({ records = [], loading = false, onDelete, onEdit }) {
                 <th>Office in Charge</th>
                 <th>Proposed Activity</th>
                 <th>Venue</th>
-
-                {/* ✅ keep header right-aligned */}
+                <th>Activity Date</th>
+                <th>Time In</th>
+                <th>Time Out</th>
                 <th className="money fee-col">Environmental Fee</th>
-
                 <th className="actions">Actions</th>
               </tr>
             </thead>
             <tbody>
               {records.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center' }}>
+                  <td colSpan={10} style={{ textAlign: 'center' }}>
                     No records found
                   </td>
                 </tr>
@@ -73,15 +73,25 @@ function RecordTable({ records = [], loading = false, onDelete, onEdit }) {
                     <td>{truncate(r.office_in_charge)}</td>
                     <td>{truncate(r.proposed_activity)}</td>
                     <td>{truncate(r.venue)}</td>
-
-                    {/* ✅ Accounting style: ₱ left, amount right */}
+                    <td>
+                      {r.activity_date_from && r.activity_date_to ? (
+                        <>
+                          <span>{formatDate(r.activity_date_from)}</span>
+                          <br />
+                          <span style={{ fontSize: '11px', color: '#666' }}>to {formatDate(r.activity_date_to)}</span>
+                        </>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                    <td>{r.time_in ? formatTime(r.time_in) : '-'}</td>
+                    <td>{r.time_out ? formatTime(r.time_out) : '-'}</td>
                     <td className="money fee-col">
                       <span className="fee-cell">
                         <span className="fee-symbol">₱</span>
                         <span className="fee-amount">{formatAmount(r.environmental_fee)}</span>
                       </span>
                     </td>
-
                     <td className="actions">
                       <button 
                         type="button" 
