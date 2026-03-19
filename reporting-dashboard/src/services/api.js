@@ -68,10 +68,12 @@ export const recordsAPI = {
 export const reportsAPI = {
   // ✅ Preview mode: return the PDF blob (component will create blob URL)
   getPDF: async (period, startDate = '', endDate = '') => {
+    console.log('getPDF called with:', { period, startDate, endDate });
     const response = await api.get('/reports/pdf', {
       params: { period, startDate, endDate },
       responseType: 'blob',
       timeout: 60000,
+      validateStatus: () => true,
     });
 
     if (response.status !== 200) {
@@ -93,6 +95,7 @@ export const reportsAPI = {
 
   // keep your existing getExcel/getSummary/getArchived... functions unchanged
   getExcel: async (period, startDate = '', endDate = '', type = '') => {
+    console.log('getExcel called with:', { period, startDate, endDate, type });
     const response = await api.get('/reports/excel', {
       params: { period, startDate, endDate, type },
       responseType: 'blob',

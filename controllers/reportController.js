@@ -365,9 +365,19 @@ async function downloadExcel(req, res) {
 
     const header = sheet.getRow(1);
     header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+    header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1b5e3f' } };
     header.alignment = { vertical: 'middle', horizontal: 'center' };
     header.height = 22;
+
+    // Apply borders to header row
+    header.eachCell((cell) => {
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } },
+      };
+    });
 
     let totalFee = 0;
 
@@ -385,23 +395,52 @@ async function downloadExcel(req, res) {
         created_at: formatDateTime(r.created_at),
       });
 
-      if (index % 2 === 0) {
-        row.eachCell((cell) => {
+      // Apply alternating row colors and borders
+      row.eachCell((cell) => {
+        if (index % 2 === 0) {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
-        });
-      }
+        }
+        // Apply borders to all data cells
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          right: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+        };
+      });
     });
 
     sheet.getColumn('environmental_fee').numFmt = '₱ #,##0.00';
     sheet.getColumn('environmental_fee').alignment = { horizontal: 'right' };
 
-    sheet.addRow([]);
+    const emptyRow = sheet.addRow([]);
+    // Add borders to empty row
+    emptyRow.eachCell((cell) => {
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+        left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+        bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+        right: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+      };
+    });
+
     const totalRow = sheet.addRow({
-      proposed_activity: 'TOTAL ENVIRONMENTAL FEE',
+      record_date: 'TOTAL ENVIRONMENTAL FEE',
       environmental_fee: totalFee,
     });
-    totalRow.font = { bold: true };
+    totalRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    totalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1b5e3f' } };
     totalRow.getCell('environmental_fee').numFmt = '₱ #,##0.00';
+    
+    // Apply borders to total row
+    totalRow.eachCell((cell) => {
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FF000000' } },
+        left: { style: 'thin', color: { argb: 'FF000000' } },
+        bottom: { style: 'thin', color: { argb: 'FF000000' } },
+        right: { style: 'thin', color: { argb: 'FF000000' } },
+      };
+    });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="records-report-${period}.xlsx"`);

@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
+import { MdDashboard, MdAssignment, MdArchive, MdLogout, MdPerson } from 'react-icons/md';
 import { recordsAPI, reportsAPI } from '../services/api';
 import RecordTable from './RecordTable';
 import RecordForm from './RecordForm';
@@ -19,6 +20,10 @@ function Dashboard({ onLogout }) {
   useEffect(() => {
     fetchRecords();
   }, []);
+
+  useEffect(() => {
+    console.log('Date state changed:', { dateFrom, dateTo });
+  }, [dateFrom, dateTo]);
 
   const fetchRecords = async () => {
     try {
@@ -63,10 +68,18 @@ function Dashboard({ onLogout }) {
   };
 
   const handleFilterByDate = () => {
+    console.log('handleFilterByDate called');
+    console.log('Current state - dateFrom:', JSON.stringify(dateFrom), 'dateTo:', JSON.stringify(dateTo));
+    console.log('dateFrom truthy?', !!dateFrom, 'dateTo truthy?', !!dateTo);
+    
     if (!dateFrom || !dateTo) {
+      console.log('Validation failed: missing dates');
       alert('Please select both start and end dates');
       return;
     }
+
+    console.log('Filter applied with dates:', { dateFrom, dateTo });
+    alert(`Filter set: ${dateFrom} to ${dateTo}`);
 
     const filtered = records.filter((record) => {
       const activityStart = record.activity_date_from ? new Date(record.activity_date_from) : null;
@@ -93,8 +106,15 @@ function Dashboard({ onLogout }) {
   };
 
   const handleDownloadPDF = async () => {
+    console.log('PDF download clicked. Current state:', { dateFrom, dateTo });
+    
+    if (!dateFrom || !dateTo) {
+      alert('Please select both start and end dates');
+      return;
+    }
     try {
       setDownloadLoading(true);
+      console.log('Downloading PDF with dates:', { dateFrom, dateTo });
       const pdfBlob = await reportsAPI.getPDF('custom', dateFrom, dateTo);
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
@@ -105,6 +125,7 @@ function Dashboard({ onLogout }) {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
+      console.error('PDF download error:', error);
       alert('Failed to download PDF: ' + (error?.message || 'Unknown error'));
     } finally {
       setDownloadLoading(false);
@@ -112,11 +133,19 @@ function Dashboard({ onLogout }) {
   };
 
   const handleDownloadExcel = async () => {
+    console.log('Excel download clicked. Current state:', { dateFrom, dateTo });
+    
+    if (!dateFrom || !dateTo) {
+      alert('Please select both start and end dates');
+      return;
+    }
     try {
       setDownloadLoading(true);
+      console.log('Downloading Excel with dates:', { dateFrom, dateTo });
       await reportsAPI.getExcel('custom', dateFrom, dateTo, '');
       alert('Excel downloaded successfully!');
     } catch (error) {
+      console.error('Excel download error:', error);
       alert('Failed to download Excel: ' + (error?.message || 'Unknown error'));
     } finally {
       setDownloadLoading(false);
@@ -199,32 +228,41 @@ function Dashboard({ onLogout }) {
             overflow: 'hidden',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 30, gap: 8 }}>
-            {sidebarExpanded && (
-              <div style={{ fontSize: 40, lineHeight: 1, height: 40, minWidth: 40 }}>🌱</div>
-            )}
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: sidebarExpanded ? 'row' : 'column',
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            marginBottom: 30, 
+            gap: sidebarExpanded ? 12 : 8
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+              <MdPerson size={40} style={{ flexShrink: 0 }} />
+              {sidebarExpanded && (
+                <div style={{ fontSize: 12, fontWeight: 600 }}>Admin</div>
+              )}
+            </div>
             <button
               onClick={() => setSidebarExpanded(!sidebarExpanded)}
               style={{
-                background: 'rgba(255, 255, 255, 0.2)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
+                background: 'none',
+                border: 'none',
                 color: 'white',
-                width: 32,
-                height: 32,
-                borderRadius: 6,
                 cursor: 'pointer',
+                fontSize: 18,
+                transition: 'all 0.3s ease',
+                flexShrink: 0,
+                padding: 0,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 16,
-                transition: 'all 0.3s ease',
-                flexShrink: 0,
+                marginTop: sidebarExpanded ? 0 : 4,
               }}
               onMouseEnter={(e) => {
-                e.target.style.background = 'rgba(255, 255, 255, 0.3)';
+                e.target.style.opacity = '0.7';
               }}
               onMouseLeave={(e) => {
-                e.target.style.background = 'rgba(255, 255, 255, 0.2)';
+                e.target.style.opacity = '1';
               }}
               title={sidebarExpanded ? 'Collapse' : 'Expand'}
             >
@@ -262,6 +300,9 @@ function Dashboard({ onLogout }) {
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
             }}
             onMouseEnter={(e) => {
               if (activeMenu !== 'dashboard') {
@@ -275,7 +316,7 @@ function Dashboard({ onLogout }) {
             }}
             title="Dashboard"
           >
-            📈 {sidebarExpanded && 'Dashboard'}
+            <MdDashboard size={20} style={{ flexShrink: 0 }} /> {sidebarExpanded && 'Dashboard'}
           </div>
 
           <div
@@ -296,6 +337,9 @@ function Dashboard({ onLogout }) {
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
             }}
             onMouseEnter={(e) => {
               if (activeMenu !== 'reports') {
@@ -309,7 +353,7 @@ function Dashboard({ onLogout }) {
             }}
             title="Reports"
           >
-            📋 {sidebarExpanded && 'Reports'}
+            <MdAssignment size={20} style={{ flexShrink: 0 }} /> {sidebarExpanded && 'Reports'}
           </div>
 
           <div
@@ -330,6 +374,9 @@ function Dashboard({ onLogout }) {
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
             }}
             onMouseEnter={(e) => {
               if (activeMenu !== 'archived') {
@@ -343,7 +390,7 @@ function Dashboard({ onLogout }) {
             }}
             title="Archived"
           >
-            🗂️ {sidebarExpanded && 'Archived'}
+            <MdArchive size={20} style={{ flexShrink: 0 }} /> {sidebarExpanded && 'Archived'}
           </div>
         </nav>
 
@@ -370,6 +417,10 @@ function Dashboard({ onLogout }) {
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: sidebarExpanded ? 'flex-start' : 'center',
+              gap: 8,
             }}
             onMouseEnter={(e) => {
               e.target.style.background = 'rgba(255, 102, 102, 0.8)';
@@ -379,7 +430,7 @@ function Dashboard({ onLogout }) {
             }}
             title="Logout"
           >
-            🚪 {sidebarExpanded && 'Logout'}
+            <MdLogout size={20} style={{ flexShrink: 0 }} /> {sidebarExpanded && 'Logout'}
           </button>
         </div>
       </aside>
@@ -412,7 +463,7 @@ function Dashboard({ onLogout }) {
                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
               }}
             >
-              <RecordTable records={records} loading={loading} onDelete={handleDeleteRecord} onEdit={handleEditRecord} />
+              <RecordTable records={records} loading={loading} />
             </div>
           </div>
         )}
@@ -437,6 +488,8 @@ function Dashboard({ onLogout }) {
                 marginBottom: 30,
                 boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
                 display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
                 flexWrap: 'wrap',
                 gap: 12,
               }}
@@ -467,85 +520,87 @@ function Dashboard({ onLogout }) {
                 ➕ Add Record
               </button>
 
-              <button
-                onClick={() => setShowFilterModal(true)}
-                style={{
-                  padding: '12px 24px',
-                  background: '#0277bd',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 6,
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                  fontSize: 14,
-                  transition: 'background 0.3s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
-                onMouseEnter={(e) => {
-                  e.target.style.background = '#01579b';
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background = '#0277bd';
-                }}
-              >
-                🔍 Filter
-              </button>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => setShowFilterModal(true)}
+                  style={{
+                    padding: '12px 24px',
+                    background: '#0277bd',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: 14,
+                    transition: 'background 0.3s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = '#01579b';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = '#0277bd';
+                  }}
+                >
+                  🔍 Filter
+                </button>
 
-              <button
-                onClick={handleDownloadPDF}
-                disabled={downloadLoading}
-                style={{
-                  padding: '12px 24px',
-                  background: downloadLoading ? '#ccc' : '#d32f2f',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 6,
-                  cursor: downloadLoading ? 'not-allowed' : 'pointer',
-                  fontWeight: 600,
-                  fontSize: 14,
-                  transition: 'background 0.3s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
-                onMouseEnter={(e) => {
-                  if (!downloadLoading) e.target.style.background = '#b71c1c';
-                }}
-                onMouseLeave={(e) => {
-                  if (!downloadLoading) e.target.style.background = '#d32f2f';
-                }}
-              >
-                📄 {downloadLoading ? 'Downloading...' : 'PDF'}
-              </button>
+                <button
+                  onClick={handleDownloadPDF}
+                  disabled={downloadLoading}
+                  style={{
+                    padding: '12px 24px',
+                    background: downloadLoading ? '#ccc' : '#d32f2f',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 6,
+                    cursor: downloadLoading ? 'not-allowed' : 'pointer',
+                    fontWeight: 600,
+                    fontSize: 14,
+                    transition: 'background 0.3s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!downloadLoading) e.target.style.background = '#b71c1c';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!downloadLoading) e.target.style.background = '#d32f2f';
+                  }}
+                >
+                  📄 {downloadLoading ? 'Downloading...' : 'PDF'}
+                </button>
 
-              <button
-                onClick={handleDownloadExcel}
-                disabled={downloadLoading}
-                style={{
-                  padding: '12px 24px',
-                  background: downloadLoading ? '#ccc' : '#2e7d32',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 6,
-                  cursor: downloadLoading ? 'not-allowed' : 'pointer',
-                  fontWeight: 600,
-                  fontSize: 14,
-                  transition: 'background 0.3s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                }}
-                onMouseEnter={(e) => {
-                  if (!downloadLoading) e.target.style.background = '#1b5e20';
-                }}
-                onMouseLeave={(e) => {
-                  if (!downloadLoading) e.target.style.background = '#2e7d32';
-                }}
-              >
-                📊 {downloadLoading ? 'Downloading...' : 'Excel'}
-              </button>
+                <button
+                  onClick={handleDownloadExcel}
+                  disabled={downloadLoading}
+                  style={{
+                    padding: '12px 24px',
+                    background: downloadLoading ? '#ccc' : '#2e7d32',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 6,
+                    cursor: downloadLoading ? 'not-allowed' : 'pointer',
+                    fontWeight: 600,
+                    fontSize: 14,
+                    transition: 'background 0.3s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!downloadLoading) e.target.style.background = '#1b5e20';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!downloadLoading) e.target.style.background = '#2e7d32';
+                  }}
+                >
+                  📊 {downloadLoading ? 'Downloading...' : 'Excel'}
+                </button>
+              </div>
             </div>
 
             {/* Records Table */}
@@ -571,6 +626,18 @@ function Dashboard({ onLogout }) {
             {/* Filter Modal */}
             <Modal isOpen={showFilterModal} title="🔍 Filter Records by Date" onClose={() => setShowFilterModal(false)}>
               <div style={{ marginBottom: 20 }}>
+                <div style={{ 
+                  background: '#f0f0f0', 
+                  padding: '12px', 
+                  borderRadius: '6px',
+                  marginBottom: 16,
+                  fontSize: 12,
+                  color: '#666'
+                }}>
+                  <strong>Debug Info:</strong><br/>
+                  From Date Value: <code>{JSON.stringify(dateFrom)}</code><br/>
+                  To Date Value: <code>{JSON.stringify(dateTo)}</code>
+                </div>
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ display: 'block', marginBottom: 6, color: '#333', fontWeight: 500, fontSize: 14 }}>
                     From Date
@@ -578,7 +645,10 @@ function Dashboard({ onLogout }) {
                   <input
                     type="date"
                     value={dateFrom}
-                    onChange={(e) => setDateFrom(e.target.value)}
+                    onChange={(e) => {
+                      console.log('From date changed:', e.target.value);
+                      setDateFrom(e.target.value);
+                    }}
                     style={{
                       width: '100%',
                       padding: 10,
@@ -603,7 +673,10 @@ function Dashboard({ onLogout }) {
                   <input
                     type="date"
                     value={dateTo}
-                    onChange={(e) => setDateTo(e.target.value)}
+                    onChange={(e) => {
+                      console.log('To date changed:', e.target.value);
+                      setDateTo(e.target.value);
+                    }}
                     style={{
                       width: '100%',
                       padding: 10,

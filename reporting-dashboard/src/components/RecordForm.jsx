@@ -55,14 +55,21 @@ function RecordForm({ onSubmit }) {
       !formData.activity_date_to ||
       !formData.time_in ||
       !formData.time_out ||
-      !formData.no_of_participants
+      formData.no_of_participants === ''
     ) {
       alert('Please fill in all required fields');
       return;
     }
 
-    if (isNaN(formData.no_of_participants) || Number(formData.no_of_participants) <= 0) {
-      alert('Number of participants must be a positive number');
+    // Validate number of participants is a valid number (0 or more)
+    const noOfParticipants = Number(formData.no_of_participants);
+    if (isNaN(noOfParticipants)) {
+      alert('Number of participants must be a valid number');
+      return;
+    }
+
+    if (noOfParticipants < 0) {
+      alert('Number of participants cannot be negative');
       return;
     }
 
@@ -148,7 +155,7 @@ function RecordForm({ onSubmit }) {
             placeholder="Describe the activity"
             value={formData.proposed_activity}
             onChange={handleChange}
-            maxLength="25"
+            maxLength="30"
             rows="2"
             required
           />
@@ -233,8 +240,7 @@ function RecordForm({ onSubmit }) {
             placeholder="0"
             value={formData.no_of_participants}
             onChange={handleChange}
-            min="1"
-            required
+            min="0"
           />
         </div>
 

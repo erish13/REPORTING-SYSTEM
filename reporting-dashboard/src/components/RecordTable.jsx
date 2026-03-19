@@ -54,6 +54,7 @@ function RecordTable({ records = [], loading = false, onDelete, onEdit }) {
                 <th>Activity Date</th>
                 <th>Time In</th>
                 <th>Time Out</th>
+                <th>No. of Participants</th>
                 <th className="money fee-col">Environmental Fee</th>
                 <th className="actions">Actions</th>
               </tr>
@@ -61,7 +62,7 @@ function RecordTable({ records = [], loading = false, onDelete, onEdit }) {
             <tbody>
               {records.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={{ textAlign: 'center' }}>
+                  <td colSpan={11} style={{ textAlign: 'center' }}>
                     No records found
                   </td>
                 </tr>
@@ -86,6 +87,7 @@ function RecordTable({ records = [], loading = false, onDelete, onEdit }) {
                     </td>
                     <td>{r.time_in ? formatTime(r.time_in) : '-'}</td>
                     <td>{r.time_out ? formatTime(r.time_out) : '-'}</td>
+                    <td style={{ textAlign: 'center' }}>{r.no_of_participants}</td>
                     <td className="money fee-col">
                       <span className="fee-cell">
                         <span className="fee-symbol">₱</span>
@@ -101,22 +103,26 @@ function RecordTable({ records = [], loading = false, onDelete, onEdit }) {
                       >
                         <FiEye size={16} />
                       </button>
-                      <button 
-                        type="button" 
-                        className="btn-action btn-edit" 
-                        title="Edit"
-                        onClick={() => onEdit?.(r.id)}
-                      >
-                        <FiEdit2 size={16} />
-                      </button>
-                      <button 
-                        type="button" 
-                        className="btn-action btn-delete" 
-                        title="Delete"
-                        onClick={() => onDelete?.(r.id)}
-                      >
-                        <FiTrash2 size={16} />
-                      </button>
+                      {onEdit && (
+                        <button 
+                          type="button" 
+                          className="btn-action btn-edit" 
+                          title="Edit"
+                          onClick={() => onEdit(r.id)}
+                        >
+                          <FiEdit2 size={16} />
+                        </button>
+                      )}
+                      {onDelete && (
+                        <button 
+                          type="button" 
+                          className="btn-action btn-delete" 
+                          title="Delete"
+                          onClick={() => onDelete(r.id)}
+                        >
+                          <FiTrash2 size={16} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -163,7 +169,17 @@ function RecordTable({ records = [], loading = false, onDelete, onEdit }) {
               </div>
               <div className="detail-row">
                 <label>Activity Date:</label>
-                <span>{formatDate(selectedRecord.activity_date)}</span>
+                <span>
+                  {selectedRecord.activity_date_from && selectedRecord.activity_date_to ? (
+                    <>
+                      <span>{formatDate(selectedRecord.activity_date_from)}</span>
+                      <br />
+                      <span style={{ fontSize: '11px', color: '#666' }}>to {formatDate(selectedRecord.activity_date_to)}</span>
+                    </>
+                  ) : (
+                    '-'
+                  )}
+                </span>
               </div>
               <div className="detail-row">
                 <label>Time In:</label>
