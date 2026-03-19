@@ -38,7 +38,7 @@ function clamp(text, maxChars) {
  * - daily:   DATE(date) = CURDATE()
  * - weekly:  YEARWEEK(date, 1) = YEARWEEK(CURDATE(), 1)  (ISO week, Monday start)
  * - monthly: YEAR(date)=YEAR(CURDATE()) AND MONTH(date)=MONTH(CURDATE())
- * - custom:  DATE(date) BETWEEN ? AND ?
+ * - custom:  Activity dates overlap with selected date range (matches frontend filter)
  */
 async function fetchRecords(period, startDate, endDate) {
   let sql = `
@@ -71,8 +71,10 @@ async function fetchRecords(period, startDate, endDate) {
     sql += ' AND YEAR(date) = YEAR(CURDATE())';
   } else if (period === 'custom') {
     if (!startDate || !endDate) throw new Error('Custom period requires startDate and endDate');
-    sql += ' AND DATE(date) BETWEEN ? AND ?';
-    params.push(startDate, endDate);
+    // Filter by activity dates: activity overlaps with the selected date range
+    // Matches frontend logic: activityStart <= filterEnd AND activityEnd >= filterStart
+    sql += ' AND DATE(activity_date_from) <= ? AND DATE(activity_date_to) >= ?';
+    params.push(endDate, startDate);
   } else {
     throw new Error('Invalid period value');
   }

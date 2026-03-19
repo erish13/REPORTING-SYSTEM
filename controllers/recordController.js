@@ -30,18 +30,16 @@ exports.createRecord = async (req, res) => {
       !venue ||
       !activity_date_from ||
       !activity_date_to ||
-      !time_in ||
-      !time_out ||
       !no_of_participants
     ) {
       return res.status(400).json({
         error:
-          'Missing required fields: date, organization_unit, office_in_charge, proposed_activity, venue, activity_date_from, activity_date_to, time_in, time_out, no_of_participants',
+          'Missing required fields: date, organization_unit, office_in_charge, proposed_activity, venue, activity_date_from, activity_date_to, no_of_participants',
       });
     }
 
-    if (isNaN(no_of_participants) || Number(no_of_participants) <= 0) {
-      return res.status(400).json({ error: 'Number of participants must be a positive number' });
+    if (isNaN(no_of_participants) || Number(no_of_participants) < 0) {
+      return res.status(400).json({ error: 'Number of participants must be a non-negative number' });
     }
 
     const fee =
@@ -118,8 +116,8 @@ exports.updateRecord = async (req, res) => {
     const existingRecord = await Record.getById(id);
     if (!existingRecord) return res.status(404).json({ error: 'Record not found' });
 
-    if (no_of_participants && (isNaN(no_of_participants) || Number(no_of_participants) <= 0)) {
-      return res.status(400).json({ error: 'Number of participants must be a positive number' });
+    if (no_of_participants && (isNaN(no_of_participants) || Number(no_of_participants) < 0)) {
+      return res.status(400).json({ error: 'Number of participants must be a non-negative number' });
     }
 
     let feeToSave = existingRecord.environmental_fee ?? 0;

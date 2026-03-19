@@ -2,20 +2,22 @@
 import { FiSave } from 'react-icons/fi';
 import '../styles/RecordForm.css';
 
-function RecordForm({ onSubmit }) {
-  const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
-    organization_unit: '',
-    office_in_charge: '',
-    proposed_activity: '',
-    venue: '',
-    activity_date_from: new Date().toISOString().split('T')[0],
-    activity_date_to: new Date().toISOString().split('T')[0],
-    time_in: '',
-    time_out: '',
-    no_of_participants: '',
-    environmental_fee: '', // NEW
-  });
+function RecordForm({ onSubmit, initialData = null }) {
+  const [formData, setFormData] = useState(
+    initialData || {
+      date: new Date().toISOString().split('T')[0],
+      organization_unit: '',
+      office_in_charge: '',
+      proposed_activity: '',
+      venue: '',
+      activity_date_from: new Date().toISOString().split('T')[0],
+      activity_date_to: new Date().toISOString().split('T')[0],
+      time_in: '',
+      time_out: '',
+      no_of_participants: '',
+      environmental_fee: '', // NEW
+    }
+  );
 
   // Function to format time with AM/PM
   const formatTimeDisplay = (time) => {
@@ -53,8 +55,6 @@ function RecordForm({ onSubmit }) {
       !formData.venue ||
       !formData.activity_date_from ||
       !formData.activity_date_to ||
-      !formData.time_in ||
-      !formData.time_out ||
       formData.no_of_participants === ''
     ) {
       alert('Please fill in all required fields');
@@ -200,14 +200,13 @@ function RecordForm({ onSubmit }) {
 
         <div className="form-row">
           <div className="form-group">
-            <label>Time In * (1-12 AM/PM)</label>
+            <label>Time In (1-12 AM/PM)</label>
             <div className="time-input-group">
               <input
                 type="time"
                 name="time_in"
                 value={formData.time_in}
                 onChange={handleChange}
-                required
               />
               <span className="time-display">
                 {formData.time_in && formatTimeDisplay(formData.time_in)}
@@ -216,14 +215,13 @@ function RecordForm({ onSubmit }) {
           </div>
 
           <div className="form-group">
-            <label>Time Out * (1-12 AM/PM)</label>
+            <label>Time Out (1-12 AM/PM)</label>
             <div className="time-input-group">
               <input
                 type="time"
                 name="time_out"
                 value={formData.time_out}
                 onChange={handleChange}
-                required
               />
               <span className="time-display">
                 {formData.time_out && formatTimeDisplay(formData.time_out)}

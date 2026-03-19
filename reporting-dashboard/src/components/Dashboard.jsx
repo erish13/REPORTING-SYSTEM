@@ -13,6 +13,8 @@ function Dashboard({ onLogout }) {
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingRecord, setEditingRecord] = useState(null);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [downloadLoading, setDownloadLoading] = useState(false);
@@ -64,7 +66,23 @@ function Dashboard({ onLogout }) {
   };
 
   const handleEditRecord = (id) => {
-    alert(`Edit functionality for record ${id} will be implemented soon`);
+    const record = records.find((r) => r.id === id);
+    if (record) {
+      setEditingRecord(record);
+      setShowEditModal(true);
+    }
+  };
+
+  const handleUpdateRecord = async (data) => {
+    try {
+      await recordsAPI.update(editingRecord.id, data);
+      alert('Record updated successfully!');
+      setShowEditModal(false);
+      setEditingRecord(null);
+      fetchRecords();
+    } catch (error) {
+      alert(error?.response?.data?.error || 'Failed to update record');
+    }
   };
 
   const handleFilterByDate = () => {
@@ -106,15 +124,21 @@ function Dashboard({ onLogout }) {
   };
 
   const handleDownloadPDF = async () => {
-    console.log('PDF download clicked. Current state:', { dateFrom, dateTo });
+    console.log('PDF download clicked. Current state:', { dateFrom, dateTo, recordsCount: filteredRecords.length });
     
     if (!dateFrom || !dateTo) {
       alert('Please select both start and end dates');
       return;
     }
+
+    if (filteredRecords.length === 0) {
+      alert('No records to download. Apply filter first.');
+      return;
+    }
+
     try {
       setDownloadLoading(true);
-      console.log('Downloading PDF with dates:', { dateFrom, dateTo });
+      console.log('Downloading PDF with filtered records:', filteredRecords.length);
       const pdfBlob = await reportsAPI.getPDF('custom', dateFrom, dateTo);
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
@@ -623,6 +647,13 @@ function Dashboard({ onLogout }) {
               <RecordForm onSubmit={handleCreateRecord} />
             </Modal>
 
+            {/* Edit Record Modal */}
+            <Modal isOpen={showEditModal} title="✏️ Edit Record" onClose={() => setShowEditModal(false)}>
+              {editingRecord && (
+                <RecordForm onSubmit={handleUpdateRecord} initialData={editingRecord} />
+              )}
+            </Modal>
+
             {/* Filter Modal */}
             <Modal isOpen={showFilterModal} title="🔍 Filter Records by Date" onClose={() => setShowFilterModal(false)}>
               <div style={{ marginBottom: 20 }}>
@@ -657,6 +688,7 @@ function Dashboard({ onLogout }) {
                       fontSize: 14,
                       boxSizing: 'border-box',
                       outline: 'none',
+                      fontFamily: 'Arial, sans-serif',
                     }}
                     onFocus={(e) => {
                       e.target.style.borderColor = '#1b5e3f';
@@ -665,6 +697,9 @@ function Dashboard({ onLogout }) {
                       e.target.style.borderColor = '#e0e0e0';
                     }}
                   />
+                  <small style={{ display: 'block', marginTop: 4, color: '#999', fontSize: 12 }}>
+                    Format: YYYY-MM-DD (e.g., 2026-03-19)
+                  </small>
                 </div>
                 <div style={{ marginBottom: 20 }}>
                   <label style={{ display: 'block', marginBottom: 6, color: '#333', fontWeight: 500, fontSize: 14 }}>
@@ -685,6 +720,7 @@ function Dashboard({ onLogout }) {
                       fontSize: 14,
                       boxSizing: 'border-box',
                       outline: 'none',
+                      fontFamily: 'Arial, sans-serif',
                     }}
                     onFocus={(e) => {
                       e.target.style.borderColor = '#1b5e3f';
@@ -693,6 +729,9 @@ function Dashboard({ onLogout }) {
                       e.target.style.borderColor = '#e0e0e0';
                     }}
                   />
+                  <small style={{ display: 'block', marginTop: 4, color: '#999', fontSize: 12 }}>
+                    Format: YYYY-MM-DD (e.g., 2026-03-19)
+                  </small>
                 </div>
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button
