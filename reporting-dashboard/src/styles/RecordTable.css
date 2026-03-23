@@ -5,7 +5,7 @@
 
 .records-table {
   width: 100%;
-  min-width: 1200px;
+  min-width: 1600px;
   table-layout: fixed;
   border-collapse: collapse;
   border-spacing: 0;
@@ -21,13 +21,12 @@
   text-align: left;
   vertical-align: middle;
 
-  padding: 0 10px;
-  height: 48px;
-  line-height: 48px;
+  padding: 10px;
+  min-height: 48px;
+  line-height: 1.4;
 
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
 
   border-right: 1px solid rgba(255, 255, 255, 0.18);
   box-sizing: border-box;
@@ -42,50 +41,58 @@
 /* ===== COLUMN WIDTHS ===== */
 .records-table th:nth-child(1),
 .records-table td:nth-child(1) {
-  width: 100px;
-  min-width: 100px;
-}
-
-.records-table th:nth-child(2),
-.records-table td:nth-child(2) {
-  width: 120px;
-  min-width: 120px;
-}
-
-.records-table th:nth-child(3),
-.records-table td:nth-child(3) {
-  width: 110px;
-  min-width: 110px;
-}
-
-.records-table th:nth-child(4),
-.records-table td:nth-child(4) {
   width: 130px;
   min-width: 130px;
 }
 
+.records-table th:nth-child(2),
+.records-table td:nth-child(2) {
+  width: 150px;
+  min-width: 150px;
+}
+
+.records-table th:nth-child(3),
+.records-table td:nth-child(3) {
+  width: 140px;
+  min-width: 140px;
+}
+
+.records-table th:nth-child(4),
+.records-table td:nth-child(4) {
+  width: 160px;
+  min-width: 160px;
+}
+
 .records-table th:nth-child(5),
 .records-table td:nth-child(5) {
-  width: 100px;
-  min-width: 100px;
+  width: 130px;
+  min-width: 130px;
 }
 
 .records-table th:nth-child(6),
 .records-table td:nth-child(6) {
-  width: 180px;
-  min-width: 180px;
+  width: 130px;
+  min-width: 130px;
 }
 
 .records-table th:nth-child(7),
 .records-table td:nth-child(7) {
-  width: 80px;
-  min-width: 80px;
+  width: 110px;
+  min-width: 110px;
 }
 
 .records-table th:nth-child(8),
 .records-table td:nth-child(8) {
-  width: 80px;
-  min-width: 80px;
+  width: 110px;
+  min-width: 110px;
+}
+
+/* No. of Participants column */
+.records-table th:nth-child(9),
+.records-table td:nth-child(9) {
+  width: 150px;
+  min-width: 150px;
+  text-align: center;
 }
 
 /* Fee column */
@@ -207,14 +214,26 @@
   color: #3b82f6;
 }
 
+.btn-view {
+  color: #666;
+}
+
 .btn-edit:hover {
   background: rgba(34, 197, 94, 0.1);
   color: #22c55e;
 }
 
+.btn-edit {
+  color: #666;
+}
+
 .btn-action.btn-delete:hover {
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
+}
+
+.btn-action.btn-delete {
+  color: #666;
 }
 
 /* ===== MODAL STYLES ===== */

@@ -17,8 +17,15 @@
 
 .form-row {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 15px;
+  flex-wrap: wrap;
+}
+
+.form-row .form-group {
+  flex: 1;
+  min-width: 140px;
+  max-width: 140px;
 }
 
 .form-group label {
@@ -48,6 +55,10 @@
   outline: none;
   border-color: #1f3c88;
   box-shadow: 0 0 0 3px rgba(31, 60, 136, 0.1);
+}
+
+.form-group input[type="date"] {
+  text-align: center;
 }
 
 .btn {

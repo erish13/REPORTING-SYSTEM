@@ -1,9 +1,14 @@
 ﻿import React, { useEffect, useState } from 'react';
 import { MdDashboard, MdAssignment, MdArchive, MdLogout, MdPerson } from 'react-icons/md';
+import { Line } from 'react-chartjs-2';
+import { Chart as ChartJS, Tooltip, Legend, LineController, LineElement, PointElement, LinearScale, CategoryScale } from 'chart.js';
 import { recordsAPI, reportsAPI } from '../services/api';
 import RecordTable from './RecordTable';
 import RecordForm from './RecordForm';
 import '../styles/Dashboard.css';
+
+// Register ChartJS components
+ChartJS.register(Tooltip, Legend, LineController, LineElement, PointElement, LinearScale, CategoryScale);
 
 function Dashboard({ onLogout }) {
   const [records, setRecords] = useState([]);
@@ -87,8 +92,7 @@ function Dashboard({ onLogout }) {
 
   const handleFilterByDate = () => {
     console.log('handleFilterByDate called');
-    console.log('Current state - dateFrom:', JSON.stringify(dateFrom), 'dateTo:', JSON.stringify(dateTo));
-    console.log('dateFrom truthy?', !!dateFrom, 'dateTo truthy?', !!dateTo);
+    console.log('Current state - dateFrom:', dateFrom, 'dateTo:', dateTo);
     
     if (!dateFrom || !dateTo) {
       console.log('Validation failed: missing dates');
@@ -176,6 +180,64 @@ function Dashboard({ onLogout }) {
     }
   };
 
+  // Generate line chart data based on record dates
+  const generateLineChartData = () => {
+    if (records.length === 0) {
+      return {
+        labels: ['No Data'],
+        datasets: [
+          {
+            label: 'Number of Records',
+            data: [0],
+            borderColor: '#36A2EB',
+            backgroundColor: 'rgba(54, 162, 235, 0.1)',
+            borderWidth: 2,
+            fill: true,
+            tension: 0.4,
+            pointRadius: 5,
+            pointBackgroundColor: '#36A2EB',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+          },
+        ],
+      };
+    }
+
+    // Group records by date and sort chronologically
+    const dateGroups = {};
+    records.forEach((record) => {
+      const date = record.date ? new Date(record.date).toLocaleDateString('en-PH') : 'Unknown';
+      dateGroups[date] = (dateGroups[date] || 0) + 1;
+    });
+
+    // Sort dates
+    const sortedDates = Object.keys(dateGroups).sort((a, b) => {
+      return new Date(b) - new Date(a);
+    }).reverse();
+
+    const data = sortedDates.map(date => dateGroups[date]);
+
+    return {
+      labels: sortedDates,
+      datasets: [
+        {
+          label: 'Number of Records',
+          data,
+          borderColor: '#36A2EB',
+          backgroundColor: 'rgba(54, 162, 235, 0.1)',
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 6,
+          pointBackgroundColor: '#36A2EB',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointHoverRadius: 8,
+        },
+      ],
+    };
+  };
+
   // Modal Backdrop Component
   const Modal = ({ isOpen, title, children, onClose }) => {
     if (!isOpen) return null;
@@ -240,8 +302,12 @@ function Dashboard({ onLogout }) {
           color: 'white',
           padding: '20px',
           boxShadow: '2px 0 10px rgba(0, 0, 0, 0.1)',
-          overflowY: 'auto',
+          overflowY: 'hidden',
           transition: 'width 0.3s ease',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          height: '100vh',
         }}
       >
         <div
@@ -254,18 +320,24 @@ function Dashboard({ onLogout }) {
         >
           <div style={{ 
             display: 'flex', 
-            flexDirection: sidebarExpanded ? 'row' : 'column',
+            flexDirection: 'column',
             alignItems: 'center', 
             justifyContent: 'center', 
-            marginBottom: 30, 
-            gap: sidebarExpanded ? 12 : 8
+            gap: 8,
+            textAlign: 'center'
           }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-              <MdPerson size={40} style={{ flexShrink: 0 }} />
-              {sidebarExpanded && (
-                <div style={{ fontSize: 12, fontWeight: 600 }}>Admin</div>
-              )}
-            </div>
+            <MdPerson size={50} style={{ flexShrink: 0 }} />
+            <div style={{ fontSize: 13, fontWeight: 700 }}>Admin</div>
+            {sidebarExpanded && (
+              <div>
+                <h3 style={{ margin: '12px 0 0 0', fontSize: 16, fontWeight: 900, lineHeight: 1.3, letterSpacing: '0.5px' }}>
+                  ENVIRONMENTAL<br />GUARANTEE FUND
+                </h3>
+                <p style={{ margin: '8px 0 0 0', fontSize: 16, fontWeight: 900, opacity: 0.9, lineHeight: 1.2 }}>
+                  ACTIVITY PERMIT
+                </p>
+              </div>
+            )}
             <button
               onClick={() => setSidebarExpanded(!sidebarExpanded)}
               style={{
@@ -273,14 +345,14 @@ function Dashboard({ onLogout }) {
                 border: 'none',
                 color: 'white',
                 cursor: 'pointer',
-                fontSize: 18,
+                fontSize: 28,
                 transition: 'all 0.3s ease',
                 flexShrink: 0,
-                padding: 0,
+                padding: '8px 0 0 0',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginTop: sidebarExpanded ? 0 : 4,
+                marginTop: 4,
               }}
               onMouseEnter={(e) => {
                 e.target.style.opacity = '0.7';
@@ -293,16 +365,6 @@ function Dashboard({ onLogout }) {
               {sidebarExpanded ? '<' : '>'}
             </button>
           </div>
-          {sidebarExpanded && (
-            <div>
-              <h3 style={{ margin: '8px 0 0 0', fontSize: 14, fontWeight: 600 }}>
-                Reporting
-              </h3>
-              <p style={{ margin: '4px 0 0 0', fontSize: 11, opacity: 0.8 }}>
-                Dashboard
-              </p>
-            </div>
-          )}
         </div>
 
         <nav>
@@ -466,6 +528,7 @@ function Dashboard({ onLogout }) {
           padding: '30px',
           overflowY: 'auto',
           transition: 'margin 0.3s ease',
+          marginLeft: sidebarExpanded ? 320 : 120,
         }}
       >
         {activeMenu === 'dashboard' && (
@@ -477,6 +540,50 @@ function Dashboard({ onLogout }) {
               <p style={{ margin: 0, color: '#666', fontSize: 14 }}>
                 Welcome back! Here's your system data.
               </p>
+            </div>
+
+            {/* Line Chart Section */}
+            <div
+              style={{
+                background: 'white',
+                borderRadius: 8,
+                padding: '20px',
+                marginBottom: 30,
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+              }}
+            >
+              <h2 style={{ margin: '0 0 20px 0', color: '#1b5e3f', fontSize: 20 }}>
+                📈 Records Over Time
+              </h2>
+              <div style={{ height: 400 }}>
+                <Line data={generateLineChartData()} options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      display: true,
+                    },
+                  },
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      ticks: {
+                        stepSize: 1,
+                      },
+                      title: {
+                        display: true,
+                        text: 'Number of Records',
+                      },
+                    },
+                    x: {
+                      title: {
+                        display: true,
+                        text: 'Record Date',
+                      },
+                    },
+                  },
+                }} />
+              </div>
             </div>
 
             <div
@@ -657,82 +764,64 @@ function Dashboard({ onLogout }) {
             {/* Filter Modal */}
             <Modal isOpen={showFilterModal} title="🔍 Filter Records by Date" onClose={() => setShowFilterModal(false)}>
               <div style={{ marginBottom: 20 }}>
-                <div style={{ 
-                  background: '#f0f0f0', 
-                  padding: '12px', 
-                  borderRadius: '6px',
-                  marginBottom: 16,
-                  fontSize: 12,
-                  color: '#666'
-                }}>
-                  <strong>Debug Info:</strong><br/>
-                  From Date Value: <code>{JSON.stringify(dateFrom)}</code><br/>
-                  To Date Value: <code>{JSON.stringify(dateTo)}</code>
+                <div className="form-row">
+                  <div className="form-group" style={{ marginBottom: 20, maxWidth: 140 }}>
+                    <label style={{ display: 'block', marginBottom: 6, color: '#333', fontWeight: 500, fontSize: 14 }}>
+                      Activity Date From *
+                    </label>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: 10,
+                        border: '1.5px solid #e0e0e0',
+                        borderRadius: 6,
+                        fontSize: 14,
+                        boxSizing: 'border-box',
+                        outline: 'none',
+                        fontFamily: 'Arial, sans-serif',
+                        textAlign: 'center',
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = '#1b5e3f';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = '#e0e0e0';
+                      }}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 20, maxWidth: 140 }}>
+                    <label style={{ display: 'block', marginBottom: 6, color: '#333', fontWeight: 500, fontSize: 14 }}>
+                      Activity Date To *
+                    </label>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: 10,
+                        border: '1.5px solid #e0e0e0',
+                        borderRadius: 6,
+                        fontSize: 14,
+                        boxSizing: 'border-box',
+                        outline: 'none',
+                        fontFamily: 'Arial, sans-serif',
+                        textAlign: 'center',
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = '#1b5e3f';
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = '#e0e0e0';
+                      }}
+                    />
+                  </div>
                 </div>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={{ display: 'block', marginBottom: 6, color: '#333', fontWeight: 500, fontSize: 14 }}>
-                    From Date
-                  </label>
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(e) => {
-                      console.log('From date changed:', e.target.value);
-                      setDateFrom(e.target.value);
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: 10,
-                      border: '1.5px solid #e0e0e0',
-                      borderRadius: 6,
-                      fontSize: 14,
-                      boxSizing: 'border-box',
-                      outline: 'none',
-                      fontFamily: 'Arial, sans-serif',
-                    }}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = '#1b5e3f';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = '#e0e0e0';
-                    }}
-                  />
-                  <small style={{ display: 'block', marginTop: 4, color: '#999', fontSize: 12 }}>
-                    Format: YYYY-MM-DD (e.g., 2026-03-19)
-                  </small>
-                </div>
-                <div style={{ marginBottom: 20 }}>
-                  <label style={{ display: 'block', marginBottom: 6, color: '#333', fontWeight: 500, fontSize: 14 }}>
-                    To Date
-                  </label>
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(e) => {
-                      console.log('To date changed:', e.target.value);
-                      setDateTo(e.target.value);
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: 10,
-                      border: '1.5px solid #e0e0e0',
-                      borderRadius: 6,
-                      fontSize: 14,
-                      boxSizing: 'border-box',
-                      outline: 'none',
-                      fontFamily: 'Arial, sans-serif',
-                    }}
-                    onFocus={(e) => {
-                      e.target.style.borderColor = '#1b5e3f';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = '#e0e0e0';
-                    }}
-                  />
-                  <small style={{ display: 'block', marginTop: 4, color: '#999', fontSize: 12 }}>
-                    Format: YYYY-MM-DD (e.g., 2026-03-19)
-                  </small>
-                </div>
+
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button
                     onClick={handleFilterByDate}
