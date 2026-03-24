@@ -5,14 +5,15 @@ import ResetPasswordForm from './components/ResetPasswordForm';
 import './App.css';
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
+  const [isAuthenticated, setIsAuthenticated] = useState(!!sessionStorage.getItem('token'));
   const [showResetPassword, setShowResetPassword] = useState(false);
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
     setIsAuthenticated(false);
   };
+
 
   if (!isAuthenticated) {
     if (showResetPassword) {

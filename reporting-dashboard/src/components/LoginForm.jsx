@@ -14,8 +14,8 @@ function LoginForm({ onSuccess, onForgotPassword }) {
     try {
       setLoading(true);
       const res = await authAPI.login(email, password);
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('user', JSON.stringify(res.data.user));
+      sessionStorage.setItem('token', res.data.token);
+      sessionStorage.setItem('user', JSON.stringify(res.data.user));
       onSuccess?.(res.data.user);
     } catch (error) {
       setError(error?.response?.data?.message || 'Login failed');
