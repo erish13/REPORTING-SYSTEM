@@ -764,25 +764,24 @@ function Dashboard({ onLogout }) {
             {/* Filter Modal */}
             <Modal isOpen={showFilterModal} title="🔍 Filter Records by Date" onClose={() => setShowFilterModal(false)}>
               <div style={{ marginBottom: 20 }}>
-                <div className="form-row">
-                  <div className="form-group" style={{ marginBottom: 20, maxWidth: 140 }}>
-                    <label style={{ display: 'block', marginBottom: 6, color: '#333', fontWeight: 500, fontSize: 14 }}>
-                      Activity Date From *
-                    </label>
+                <div style={{ marginBottom: 20 }}>
+                  <p style={{ color: '#333', fontWeight: 500, fontSize: 14, marginBottom: 15 }}>
+                    Activity Date: From <span style={{ color: '#d32f2f' }}>*</span> To <span style={{ color: '#d32f2f' }}>*</span>
+                  </p>
+                  <div className="form-row" style={{ display: 'flex', gap: 15, alignItems: 'center' }}>
                     <input
                       type="date"
                       value={dateFrom}
                       onChange={(e) => setDateFrom(e.target.value)}
                       style={{
-                        width: '100%',
-                        padding: 10,
+                        flex: 1,
+                        padding: '10px',
                         border: '1.5px solid #e0e0e0',
                         borderRadius: 6,
                         fontSize: 14,
                         boxSizing: 'border-box',
                         outline: 'none',
                         fontFamily: 'Arial, sans-serif',
-                        textAlign: 'center',
                       }}
                       onFocus={(e) => {
                         e.target.style.borderColor = '#1b5e3f';
@@ -791,26 +790,20 @@ function Dashboard({ onLogout }) {
                         e.target.style.borderColor = '#e0e0e0';
                       }}
                     />
-                  </div>
-
-                  <div className="form-group" style={{ marginBottom: 20, maxWidth: 140 }}>
-                    <label style={{ display: 'block', marginBottom: 6, color: '#333', fontWeight: 500, fontSize: 14 }}>
-                      Activity Date To *
-                    </label>
+                    <span style={{ color: '#999', fontWeight: 500 }}>to</span>
                     <input
                       type="date"
                       value={dateTo}
                       onChange={(e) => setDateTo(e.target.value)}
                       style={{
-                        width: '100%',
-                        padding: 10,
+                        flex: 1,
+                        padding: '10px',
                         border: '1.5px solid #e0e0e0',
                         borderRadius: 6,
                         fontSize: 14,
                         boxSizing: 'border-box',
                         outline: 'none',
                         fontFamily: 'Arial, sans-serif',
-                        textAlign: 'center',
                       }}
                       onFocus={(e) => {
                         e.target.style.borderColor = '#1b5e3f';
