@@ -13,6 +13,16 @@ function formatDate(value) {
   return d.toLocaleDateString('en-PH');
 }
 
+/**
+ * Format date range with proper null handling
+ * Ensures both dates are displayed, defaulting to '-' if missing
+ */
+function formatDateRange(startDate, endDate) {
+  const start = formatDate(startDate) || '-';
+  const end = formatDate(endDate) || '-';
+  return `${start} to ${end}`;
+}
+
 function formatDateTime(value) {
   if (!value) return '';
   const d = new Date(value);
@@ -25,10 +35,21 @@ function peso(v) {
   return `PHP ${Number(v || 0).toFixed(2)}`;
 }
 
-function clamp(text, maxChars) {
-  const s = String(text ?? '');
-  if (s.length <= maxChars) return s;
-  return `${s.slice(0, Math.max(0, maxChars - 3))}...`;
+/**
+ * Calculate actual text height needed for wrapped text at given width
+ * Uses a rough estimate based on character count and column width
+ */
+function estimateWrappedTextHeight(text, columnWidth, fontSize = 6.5) {
+  const textStr = String(text || '');
+  if (!textStr) return fontSize * 1.15; // Minimum height for one empty line
+  
+  // Rough estimate: at 6.5pt font, approximately 12-15 characters fit per line per 50 points
+  // Adjust for actual column width
+  const avgCharsPerLine = Math.max(5, Math.round((columnWidth / 50) * 12));
+  const numLines = Math.max(1, Math.ceil(textStr.length / avgCharsPerLine));
+  
+  // Line height multiplier (typically 1.15x the font size for wrapped text)
+  return numLines * (fontSize * 1.15);
 }
 
 /**
@@ -176,24 +197,25 @@ async function downloadPDF(req, res) {
       top: doc.page.margins.top,
       bottom: doc.page.margins.bottom,
       width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
-      rowH: 16,
-      headerH: 22,
+      minRowH: 20,  // Minimum row height for wrapped text
+      headerH: 28,   // Increased header height for better readability
     };
 
-    // Base widths optimized for portrait A4
+    // Optimized column widths for A4 portrait with text wrapping
+    // Total must fit within PAGE.width, allowing room for wrapped text
     const baseCols = [
-      { key: 'record_date', label: 'Rec. Date', w: 50, align: 'center' },
-      { key: 'organization_unit', label: 'Org/Unit', w: 50, align: 'left' },
-      { key: 'office_in_charge', label: 'Officer', w: 50, align: 'left' },
-      { key: 'proposed_activity', label: 'Activity', w: 65, align: 'left' },
-      { key: 'venue', label: 'Venue', w: 45, align: 'left' },
-      { key: 'activity_date', label: 'Act. Date', w: 85, align: 'center' },
-      { key: 'time_in', label: 'T. In', w: 40, align: 'center' },
-      { key: 'time_out', label: 'T. Out', w: 40, align: 'center' },
-      { key: 'environmental_fee', label: 'Fee', w: 60, align: 'right' },
+      { key: 'record_date', label: 'Rec. Date', w: 45, align: 'center' },
+      { key: 'organization_unit', label: 'Organization/Unit', w: 70, align: 'left' },
+      { key: 'office_in_charge', label: 'Officer in Charge', w: 70, align: 'left' },
+      { key: 'proposed_activity', label: 'Proposed Activity', w: 80, align: 'left' },
+      { key: 'venue', label: 'Venue', w: 65, align: 'left' },
+      { key: 'activity_date', label: 'Activity Date', w: 85, align: 'center' },
+      { key: 'time_in', label: 'Time In', w: 40, align: 'center' },
+      { key: 'time_out', label: 'Time Out', w: 40, align: 'center' },
+      { key: 'environmental_fee', label: 'Environmental Fee', w: 65, align: 'right' },
     ];
 
-    const { cols, tableWidth } = fitColumnsToPage(baseCols, PAGE.width, 65);
+    const { cols, tableWidth } = fitColumnsToPage(baseCols, PAGE.width, 45);
     const TABLE_LEFT = PAGE.left + Math.max(0, Math.floor((PAGE.width - tableWidth) / 2));
 
     // Title & meta (like your sample)
@@ -212,11 +234,11 @@ async function downloadPDF(req, res) {
     doc.rect(TABLE_LEFT, y, tableWidth, PAGE.headerH).fill('#1b5e3f');
     doc.restore();
 
-    doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(6.5);
+    doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(7);
 
     let x = TABLE_LEFT;
     cols.forEach((c) => {
-      doc.text(c.label, x + 2, y + 5, { width: c.w - 4, align: c.align });
+      doc.text(c.label, x + 2, y + 5, { width: c.w - 4, align: c.align, lineBreak: true, height: PAGE.headerH - 10 });
       x += c.w;
     });
 
@@ -234,7 +256,57 @@ async function downloadPDF(req, res) {
     let totalFee = 0;
 
     for (let i = 0; i < rows.length; i++) {
-      if (y + PAGE.rowH > doc.page.height - PAGE.bottom - 70) {
+      const r = rows[i];
+      const fee = Number(r.environmental_fee || 0);
+      totalFee += fee;
+
+      const formatTime = (time) => {
+        if (!time) return '-';
+        const [hours, minutes] = time.split(':');
+        let hour = parseInt(hours, 10);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        if (hour > 12) hour = hour - 12;
+        else if (hour === 0) hour = 12;
+        return `${String(hour).padStart(2, '0')}:${minutes} ${ampm}`;
+      };
+
+      // Full text - no truncation for PDF
+      // Ensure both activity dates are properly retrieved and formatted
+      const activityDateFrom = r.activity_date_from;
+      const activityDateTo = r.activity_date_to;
+      
+      // Validate that dates are not just empty strings
+      const hasStartDate = activityDateFrom && activityDateFrom.toString().trim() !== '';
+      const hasEndDate = activityDateTo && activityDateTo.toString().trim() !== '';
+      
+      const data = {
+        record_date: formatDate(r.date),
+        organization_unit: r.organization_unit || '',
+        office_in_charge: r.office_in_charge || '',
+        proposed_activity: r.proposed_activity || '',
+        venue: r.venue || '',
+        activity_date: formatDateRange(
+          hasStartDate ? activityDateFrom : null,
+          hasEndDate ? activityDateTo : null
+        ),
+        time_in: formatTime(r.time_in),
+        time_out: formatTime(r.time_out),
+        environmental_fee: peso(fee),
+      };
+
+      // Calculate required row height based on wrapped text
+      let maxHeight = PAGE.minRowH;
+      cols.forEach((c) => {
+        const cellText = String(data[c.key] || '');
+        const cellHeight = estimateWrappedTextHeight(cellText, c.w);
+        maxHeight = Math.max(maxHeight, cellHeight + 8); // +8 for padding
+      });
+      
+      // Dynamic row height: accounts for wrapped text
+      const rowH = maxHeight;
+
+      // Page break handling with dynamic row height
+      if (y + rowH > doc.page.height - PAGE.bottom - 70) {
         doc.addPage();
         y = PAGE.top;
 
@@ -243,11 +315,11 @@ async function downloadPDF(req, res) {
         doc.rect(TABLE_LEFT, y, tableWidth, PAGE.headerH).fill('#1b5e3f');
         doc.restore();
 
-        doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(6.5);
+        doc.fillColor('#FFFFFF').font('Helvetica-Bold').fontSize(7);
 
         let hx = TABLE_LEFT;
         cols.forEach((c) => {
-          doc.text(c.label, hx + 2, y + 5, { width: c.w - 4, align: c.align });
+          doc.text(c.label, hx + 2, y + 5, { width: c.w - 4, align: c.align, lineBreak: true });
           hx += c.w;
         });
 
@@ -264,35 +336,9 @@ async function downloadPDF(req, res) {
 
       if (i % 2 === 0) {
         doc.save();
-        doc.rect(TABLE_LEFT, y, tableWidth, PAGE.rowH).fill('#F8FAFC');
+        doc.rect(TABLE_LEFT, y, tableWidth, rowH).fill('#F8FAFC');
         doc.restore();
       }
-
-      const r = rows[i];
-      const fee = Number(r.environmental_fee || 0);
-      totalFee += fee;
-
-      const formatTime = (time) => {
-        if (!time) return '-';
-        const [hours, minutes] = time.split(':');
-        let hour = parseInt(hours, 10);
-        const ampm = hour >= 12 ? 'PM' : 'AM';
-        if (hour > 12) hour = hour - 12;
-        else if (hour === 0) hour = 12;
-        return `${String(hour).padStart(2, '0')}:${minutes} ${ampm}`;
-      };
-
-      const data = {
-        record_date: formatDate(r.date),
-        organization_unit: clamp(r.organization_unit, 12),
-        office_in_charge: clamp(r.office_in_charge, 12),
-        proposed_activity: clamp(r.proposed_activity, 15),
-        venue: clamp(r.venue, 12),
-        activity_date: `${formatDate(r.activity_date_from) || '-'} to ${formatDate(r.activity_date_to) || '-'}`,
-        time_in: formatTime(r.time_in),
-        time_out: formatTime(r.time_out),
-        environmental_fee: peso(fee),
-      };
 
       x = TABLE_LEFT;
       cols.forEach((c) => {
@@ -301,24 +347,25 @@ async function downloadPDF(req, res) {
         doc.text(data[c.key], x + 2, y + 4, {
           width: c.w - 4,
           align: c.align,
-          lineBreak: false,
-          ellipsis: true,
+          height: rowH - 8,
+          lineBreak: true,
+          ellipsis: false,
         });
 
         x += c.w;
       });
 
       doc.strokeColor('#D1D5DB').lineWidth(0.35);
-      doc.rect(TABLE_LEFT, y, tableWidth, PAGE.rowH).stroke();
+      doc.rect(TABLE_LEFT, y, tableWidth, rowH).stroke();
 
       x = TABLE_LEFT;
       cols.forEach((c) => {
-        doc.moveTo(x, y).lineTo(x, y + PAGE.rowH).stroke();
+        doc.moveTo(x, y).lineTo(x, y + rowH).stroke();
         x += c.w;
       });
-      doc.moveTo(x, y).lineTo(x, y + PAGE.rowH).stroke();
+      doc.moveTo(x, y).lineTo(x, y + rowH).stroke();
 
-      y += PAGE.rowH;
+      y += rowH;
     }
 
     // Total line
@@ -330,9 +377,8 @@ async function downloadPDF(req, res) {
     doc.text(`TOTAL ENVIRONMENTAL FEE: ${peso(totalFee)}`, TABLE_LEFT, y + 10, {
       width: tableWidth,
       align: 'left',
-      lineBreak: false,
-      ellipsis: true,
-      
+      lineBreak: true,
+      ellipsis: false,
     });
 
     doc.end();
@@ -361,6 +407,7 @@ async function downloadExcel(req, res) {
       { header: 'Office in Charge', key: 'office_in_charge', width: 24 },
       { header: 'Proposed Activity', key: 'proposed_activity', width: 35 },
       { header: 'Venue', key: 'venue', width: 20 },
+      { header: 'Activity Date Range', key: 'activity_date', width: 28 },
       { header: 'Environmental Fee', key: 'environmental_fee', width: 20 },
       { header: 'Created At', key: 'created_at', width: 22 },
     ];
@@ -387,12 +434,22 @@ async function downloadExcel(req, res) {
       const fee = Number(r.environmental_fee || 0);
       totalFee += fee;
 
+      // Ensure both activity dates are present and properly formatted
+      const activityDateFrom = r.activity_date_from;
+      const activityDateTo = r.activity_date_to;
+      const hasStartDate = activityDateFrom && activityDateFrom.toString().trim() !== '';
+      const hasEndDate = activityDateTo && activityDateTo.toString().trim() !== '';
+
       const row = sheet.addRow({
         record_date: formatDate(r.date),
         organization_unit: r.organization_unit || '',
         office_in_charge: r.office_in_charge || '',
         proposed_activity: r.proposed_activity || '',
         venue: r.venue || '',
+        activity_date: formatDateRange(
+          hasStartDate ? activityDateFrom : null,
+          hasEndDate ? activityDateTo : null
+        ),
         environmental_fee: fee,
         created_at: formatDateTime(r.created_at),
       });
@@ -459,4 +516,8 @@ module.exports = {
   getSummary,
   downloadPDF,
   downloadExcel,
+  archiveReport: async (period, options) => {
+    // Placeholder for archive functionality
+    return { success: true, message: 'Archive not yet implemented' };
+  },
 };

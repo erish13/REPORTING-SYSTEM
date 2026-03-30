@@ -9,6 +9,12 @@ function RecordTable({ records = [], loading = false, onDelete, onEdit }) {
 
   const formatDateTime = (value) => (value ? new Date(value).toLocaleString('en-PH') : '');
 
+  const formatDateRange = (startDate, endDate) => {
+    const start = formatDate(startDate) || '-';
+    const end = formatDate(endDate) || '-';
+    return `${start} to ${end}`;
+  };
+
   const formatTime = (time) => {
     if (!time) return '';
     const [hours, minutes] = time.split(':');

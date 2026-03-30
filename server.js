@@ -19,7 +19,7 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet());
 
 // CORS allowlist
-const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:5174')
   .split(',')
   .map((o) => o.trim())
   .filter(Boolean);
