@@ -161,6 +161,41 @@ exports.deleteRecord = async (req, res) => {
   }
 };
 
+exports.getArchivedRecords = async (req, res) => {
+  try {
+    const archived = await Record.getArchived();
+    res.status(200).json({ success: true, data: archived });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.restoreRecord = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id || isNaN(id)) return res.status(400).json({ error: 'Invalid record ID' });
+
+    const result = await Record.restore(id);
+    if (!result.success) return res.status(404).json(result);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+exports.permanentlyDeleteRecord = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id || isNaN(id)) return res.status(400).json({ error: 'Invalid record ID' });
+
+    const result = await Record.permanentlyDelete(id);
+    if (!result.success) return res.status(404).json(result);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 /**
  * FILTER: Fix "Today" not showing by using DB-side date filters (MySQL/MariaDB)
  * GET /api/records/filter/query?period=daily|weekly|monthly|custom&startDate=YYYY-MM-DD&endDate=YYYY-MM-DD

@@ -162,3 +162,23 @@ const archivePreviousWeekIfNeeded = async () => {
 
 archivePreviousWeekIfNeeded();
 setInterval(archivePreviousWeekIfNeeded, 24 * 60 * 60 * 1000);
+
+/**
+ * Auto-delete archived records older than 30 days
+ * Runs once daily at startup and then every 24 hours
+ */
+const cleanupArchivedRecords = async () => {
+  try {
+    const Record = require('./models/Record');
+    const result = await Record.deleteArchivedOlderThan30Days();
+    if (result.deletedCount > 0) {
+      console.log(`✨ Auto-cleanup: Permanently deleted ${result.deletedCount} archived records older than 30 days`);
+    }
+  } catch (error) {
+    console.error('Auto-cleanup error:', error);
+  }
+};
+
+// Run cleanup on startup and then every 24 hours
+cleanupArchivedRecords();
+setInterval(cleanupArchivedRecords, 24 * 60 * 60 * 1000);
