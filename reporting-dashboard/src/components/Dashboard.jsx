@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { MdDashboard, MdAssignment, MdArchive, MdLogout, MdPerson } from 'react-icons/md';
+import { MdDashboard, MdAssignment, MdArchive, MdLogout, MdPerson, MdAdd, MdGetApp, MdFilterList } from 'react-icons/md';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, Tooltip, Legend, LineController, LineElement, PointElement, LinearScale, CategoryScale } from 'chart.js';
 import { recordsAPI, reportsAPI } from '../services/api';
@@ -24,9 +24,6 @@ function Dashboard({ onLogout }) {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [downloadLoading, setDownloadLoading] = useState(false);
-  const [showArchivedModal, setShowArchivedModal] = useState(false);
-  const [archivedReports, setArchivedReports] = useState([]);
-  const [loadingArchived, setLoadingArchived] = useState(false);
   const [showArchivedModal, setShowArchivedModal] = useState(false);
   const [archivedReports, setArchivedReports] = useState([]);
   const [loadingArchived, setLoadingArchived] = useState(false);
@@ -634,7 +631,8 @@ function Dashboard({ onLogout }) {
                   e.target.style.background = '#1b5e3f';
                 }}
               >
-                ➕ Add Record
+                <MdAdd size={18} style={{ marginRight: '6px' }} />
+                Add Record
               </button>
 
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -672,7 +670,8 @@ function Dashboard({ onLogout }) {
                     if (!loadingArchived) e.target.style.background = '#ff6f00';
                   }}
                 >
-                  🗂️ {loadingArchived ? 'Loading...' : 'Archived Reports'}
+                  <MdArchive size={18} style={{ marginRight: '6px' }} />
+                  {loadingArchived ? 'Loading...' : 'Archived Reports'}
                 </button>
 
                 <button
@@ -698,7 +697,8 @@ function Dashboard({ onLogout }) {
                     e.target.style.background = '#0277bd';
                   }}
                 >
-                  🔍 Filter
+                  <MdFilterList size={18} style={{ marginRight: '6px' }} />
+                  Filter
                 </button>
 
                 <button
@@ -725,7 +725,8 @@ function Dashboard({ onLogout }) {
                     if (!downloadLoading) e.target.style.background = '#d32f2f';
                   }}
                 >
-                  📄 {downloadLoading ? 'Downloading...' : 'PDF'}
+                  <MdGetApp size={18} style={{ marginRight: '6px' }} />
+                  {downloadLoading ? 'Downloading...' : 'Download PDF'}
                 </button>
 
                 <button
@@ -752,7 +753,7 @@ function Dashboard({ onLogout }) {
                     if (!downloadLoading) e.target.style.background = '#2e7d32';
                   }}
                 >
-                  📊 {downloadLoading ? 'Downloading...' : 'Excel'}
+                  <MdGetApp size={18} style={{ marginRight: '6px' }} /> {downloadLoading ? 'Downloading...' : 'Excel'}
                 </button>
               </div>
             </div>

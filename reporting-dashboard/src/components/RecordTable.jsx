@@ -1,5 +1,5 @@
 ﻿import React, { useState } from 'react';
-import { FiEye, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { MdVisibility, MdEdit, MdDelete } from 'react-icons/md';
 import '../styles/RecordTable.css';
 
 function RecordTable({ records = [], loading = false, onDelete, onEdit }) {
@@ -82,11 +82,11 @@ function RecordTable({ records = [], loading = false, onDelete, onEdit }) {
                     <td>{truncate(r.venue)}</td>
                     <td>
                       {r.activity_date_from && r.activity_date_to ? (
-                        <>
-                          <span>{formatDate(r.activity_date_from)}</span>
+                        <span style={{ display: 'inline', fontSize: '13px' }}>
+                          {formatDate(r.activity_date_from)}
                           <br />
                           <span style={{ fontSize: '11px', color: '#666' }}>to {formatDate(r.activity_date_to)}</span>
-                        </>
+                        </span>
                       ) : (
                         '-'
                       )}
@@ -107,26 +107,26 @@ function RecordTable({ records = [], loading = false, onDelete, onEdit }) {
                         title="View Details"
                         onClick={() => setSelectedRecord(r)}
                       >
-                        <FiEye size={16} />
+                        <MdVisibility size={25} />
                       </button>
                       {onEdit && (
                         <button 
                           type="button" 
                           className="btn-action btn-edit" 
-                          title="Edit"
+                          title="Edit Record"
                           onClick={() => onEdit(r.id)}
                         >
-                          <FiEdit2 size={16} />
+                          <MdEdit size={25} />
                         </button>
                       )}
                       {onDelete && (
                         <button 
                           type="button" 
                           className="btn-action btn-delete" 
-                          title="Delete"
+                          title="Delete Record"
                           onClick={() => onDelete(r.id)}
                         >
-                          <FiTrash2 size={16} />
+                          <MdDelete size={25} />
                         </button>
                       )}
                     </td>
