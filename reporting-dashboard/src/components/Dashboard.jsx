@@ -5,6 +5,7 @@ import { Chart as ChartJS, Tooltip, Legend, LineController, LineElement, PointEl
 import { recordsAPI, reportsAPI } from '../services/api';
 import RecordTable from './RecordTable';
 import RecordForm from './RecordForm';
+import ArchivedReportsModal from './ArchivedReportsModal';
 import '../styles/Dashboard.css';
 
 // Register ChartJS components
@@ -23,6 +24,12 @@ function Dashboard({ onLogout }) {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [downloadLoading, setDownloadLoading] = useState(false);
+  const [showArchivedModal, setShowArchivedModal] = useState(false);
+  const [archivedReports, setArchivedReports] = useState([]);
+  const [loadingArchived, setLoadingArchived] = useState(false);
+  const [showArchivedModal, setShowArchivedModal] = useState(false);
+  const [archivedReports, setArchivedReports] = useState([]);
+  const [loadingArchived, setLoadingArchived] = useState(false);
 
   useEffect(() => {
     fetchRecords();
@@ -130,20 +137,12 @@ function Dashboard({ onLogout }) {
   const handleDownloadPDF = async () => {
     console.log('PDF download clicked. Current state:', { dateFrom, dateTo, recordsCount: filteredRecords.length });
     
-    if (!dateFrom || !dateTo) {
-      alert('Please select both start and end dates');
-      return;
-    }
-
-    if (filteredRecords.length === 0) {
-      alert('No records to download. Apply filter first.');
-      return;
-    }
-
     try {
       setDownloadLoading(true);
-      console.log('Downloading PDF with filtered records:', filteredRecords.length);
-      const pdfBlob = await reportsAPI.getPDF('custom', dateFrom, dateTo);
+      console.log('Downloading PDF with dates:', { dateFrom, dateTo });
+      // Use custom period if dates are provided, otherwise use monthly as default
+      const period = dateFrom && dateTo ? 'custom' : 'monthly';
+      const pdfBlob = await reportsAPI.getPDF(period, dateFrom, dateTo);
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
       a.href = url;
@@ -163,20 +162,42 @@ function Dashboard({ onLogout }) {
   const handleDownloadExcel = async () => {
     console.log('Excel download clicked. Current state:', { dateFrom, dateTo });
     
-    if (!dateFrom || !dateTo) {
-      alert('Please select both start and end dates');
-      return;
-    }
     try {
       setDownloadLoading(true);
       console.log('Downloading Excel with dates:', { dateFrom, dateTo });
-      await reportsAPI.getExcel('custom', dateFrom, dateTo, '');
+      // Use custom period if dates are provided, otherwise use monthly as default
+      const period = dateFrom && dateTo ? 'custom' : 'monthly';
+      await reportsAPI.getExcel(period, dateFrom, dateTo, '');
       alert('Excel downloaded successfully!');
     } catch (error) {
       console.error('Excel download error:', error);
       alert('Failed to download Excel: ' + (error?.message || 'Unknown error'));
     } finally {
       setDownloadLoading(false);
+    }
+  };
+
+  const handleRestoreArchivedReport = async (id) => {
+    try {
+      await recordsAPI.restore?.(id);
+      alert('Report restored successfully!');
+      fetchRecords();
+      setShowArchivedModal(false);
+    } catch (error) {
+      alert(error?.response?.data?.error || 'Failed to restore report');
+    }
+  };
+
+  const handlePermanentlyDeleteArchivedReport = async (id) => {
+    if (window.confirm('This will permanently delete the report. This action cannot be undone.')) {
+      try {
+        await recordsAPI.permanentlyDelete?.(id);
+        alert('Report permanently deleted!');
+        // Refresh archived reports list
+        setArchivedReports(archivedReports.filter(r => r.id !== id));
+      } catch (error) {
+        alert(error?.response?.data?.error || 'Failed to delete report');
+      }
     }
   };
 
@@ -442,42 +463,7 @@ function Dashboard({ onLogout }) {
             <MdAssignment size={20} style={{ flexShrink: 0 }} /> {sidebarExpanded && 'Reports'}
           </div>
 
-          <div
-            onClick={() => setActiveMenu('archived')}
-            style={{
-              padding: '12px 16px',
-              marginBottom: 8,
-              borderRadius: 6,
-              cursor: 'pointer',
-              background:
-                activeMenu === 'archived'
-                  ? 'rgba(255, 255, 255, 0.2)'
-                  : 'transparent',
-              transition: 'background 0.3s',
-              fontSize: sidebarExpanded ? 15 : 12,
-              fontWeight: activeMenu === 'archived' ? 600 : 500,
-              textAlign: sidebarExpanded ? 'left' : 'center',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-            }}
-            onMouseEnter={(e) => {
-              if (activeMenu !== 'archived') {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (activeMenu !== 'archived') {
-                e.currentTarget.style.background = 'transparent';
-              }
-            }}
-            title="Archived"
-          >
-            <MdArchive size={20} style={{ flexShrink: 0 }} /> {sidebarExpanded && 'Archived'}
-          </div>
+
         </nav>
 
         <div
@@ -652,6 +638,43 @@ function Dashboard({ onLogout }) {
               </button>
 
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => {
+                    setLoadingArchived(true);
+                    // Fetch archived records
+                    recordsAPI.getArchived?.().then(res => {
+                      setArchivedReports(res.data?.data || res.data || []);
+                      setShowArchivedModal(true);
+                    }).catch(err => {
+                      alert('Failed to load archived reports');
+                      console.error(err);
+                    }).finally(() => setLoadingArchived(false));
+                  }}
+                  disabled={loadingArchived}
+                  style={{
+                    padding: '12px 24px',
+                    background: loadingArchived ? '#ccc' : '#ff6f00',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 6,
+                    cursor: loadingArchived ? 'not-allowed' : 'pointer',
+                    fontWeight: 600,
+                    fontSize: 14,
+                    transition: 'background 0.3s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!loadingArchived) e.target.style.background = '#e65100';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!loadingArchived) e.target.style.background = '#ff6f00';
+                  }}
+                >
+                  🗂️ {loadingArchived ? 'Loading...' : 'Archived Reports'}
+                </button>
+
                 <button
                   onClick={() => setShowFilterModal(true)}
                   style={{
@@ -868,20 +891,15 @@ function Dashboard({ onLogout }) {
           </div>
         )}
 
-        {activeMenu === 'archived' && (
-          <div
-            style={{
-              background: 'white',
-              borderRadius: 8,
-              padding: '40px',
-              textAlign: 'center',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-            }}
-          >
-            <h2 style={{ color: '#1b5e3f' }}>🗂️ Archived Records</h2>
-            <p style={{ color: '#666' }}>Archived section coming soon...</p>
-          </div>
-        )}
+        {/* Archived Reports Modal */}
+        <ArchivedReportsModal
+          isOpen={showArchivedModal}
+          onClose={() => setShowArchivedModal(false)}
+          archivedReports={archivedReports}
+          onRestore={handleRestoreArchivedReport}
+          onPermanentDelete={handlePermanentlyDeleteArchivedReport}
+          loading={loadingArchived}
+        />
       </main>
     </div>
   );

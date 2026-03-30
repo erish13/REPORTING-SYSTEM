@@ -57,6 +57,9 @@ export const recordsAPI = {
   create: (data) => api.post('/records', data),
   update: (id, data) => api.put(`/records/${id}`, data),
   delete: (id) => api.delete(`/records/${id}`),
+  getArchived: () => api.get('/records/archived'),
+  restore: (id) => api.post(`/records/${id}/restore`),
+  permanentlyDelete: (id) => api.delete(`/records/${id}/permanent`),
   filter: (period, startDate, endDate, type) =>
     api.get('/records/filter/query', {
       params: { period, startDate, endDate, type },
