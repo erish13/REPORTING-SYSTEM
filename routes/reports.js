@@ -1,16 +1,14 @@
 const express = require('express');
+const router = express.Router();
+const { auth, authorize, ownerOnly } = require('../middleware/auth');
 const reportController = require('../controllers/reportController');
 
-const router = express.Router();
+// Protect all report routes
+router.use(auth, authorize('ADMIN'), ownerOnly);
 
-// Report endpoints
-router.get('/pdf', reportController.generatePDFReport);
-router.get('/excel', reportController.generateExcelReport);
-router.get('/summary', reportController.getReportSummary);
-
-// Archived reports endpoints
-router.get('/archived', reportController.listArchivedReports);
-router.get('/archived/weeks', reportController.getArchivedWeeks);
-router.get('/archived/week/:weekKey', reportController.generateArchivedWeekReport);
+// Needed by frontend
+router.get('/summary', reportController.getSummary);
+router.get('/pdf', reportController.downloadPDF);
+router.get('/excel', reportController.downloadExcel);
 
 module.exports = router;

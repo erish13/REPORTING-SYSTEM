@@ -1,19 +1,23 @@
 ﻿import React, { useState } from 'react';
+import { FiSave } from 'react-icons/fi';
 import '../styles/RecordForm.css';
 
-function RecordForm({ onSubmit }) {
-  const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
-    organization_unit: '',
-    office_in_charge: '',
-    proposed_activity: '',
-    venue: '',
-    activity_date: new Date().toISOString().split('T')[0],
-    time_in: '',
-    time_out: '',
-    no_of_participants: '',
-    environmental_fee: '', // NEW
-  });
+function RecordForm({ onSubmit, initialData = null }) {
+  const [formData, setFormData] = useState(
+    initialData || {
+      date: new Date().toISOString().split('T')[0],
+      organization_unit: '',
+      office_in_charge: '',
+      proposed_activity: '',
+      venue: '',
+      activity_date_from: new Date().toISOString().split('T')[0],
+      activity_date_to: new Date().toISOString().split('T')[0],
+      time_in: '',
+      time_out: '',
+      no_of_participants: '',
+      environmental_fee: '', // NEW
+    }
+  );
 
   // Function to format time with AM/PM
   const formatTimeDisplay = (time) => {
@@ -49,17 +53,23 @@ function RecordForm({ onSubmit }) {
       !formData.office_in_charge ||
       !formData.proposed_activity ||
       !formData.venue ||
-      !formData.activity_date ||
-      !formData.time_in ||
-      !formData.time_out ||
-      !formData.no_of_participants
+      !formData.activity_date_from ||
+      !formData.activity_date_to ||
+      formData.no_of_participants === ''
     ) {
       alert('Please fill in all required fields');
       return;
     }
 
-    if (isNaN(formData.no_of_participants) || Number(formData.no_of_participants) <= 0) {
-      alert('Number of participants must be a positive number');
+    // Validate number of participants is a valid number (0 or more)
+    const noOfParticipants = Number(formData.no_of_participants);
+    if (isNaN(noOfParticipants)) {
+      alert('Number of participants must be a valid number');
+      return;
+    }
+
+    if (noOfParticipants < 0) {
+      alert('Number of participants cannot be negative');
       return;
     }
 
@@ -88,7 +98,8 @@ function RecordForm({ onSubmit }) {
       office_in_charge: '',
       proposed_activity: '',
       venue: '',
-      activity_date: new Date().toISOString().split('T')[0],
+      activity_date_from: new Date().toISOString().split('T')[0],
+      activity_date_to: new Date().toISOString().split('T')[0],
       time_in: '',
       time_out: '',
       no_of_participants: '',
@@ -98,7 +109,7 @@ function RecordForm({ onSubmit }) {
 
   return (
     <div className="record-form">
-      <h2>📝 Add Record</h2>
+      <h2> Add Record</h2>
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label>Record Date *</label>
@@ -119,18 +130,20 @@ function RecordForm({ onSubmit }) {
             placeholder="e.g., HR Department"
             value={formData.organization_unit}
             onChange={handleChange}
+            maxLength="25"
             required
           />
         </div>
 
         <div className="form-group">
-          <label>Office in Charge *</label>
+          <label>Officer in Charge *</label>
           <input
             type="text"
             name="office_in_charge"
             placeholder="e.g., Ms. Jane Doe"
             value={formData.office_in_charge}
             onChange={handleChange}
+            maxLength="25"
             required
           />
         </div>
@@ -142,6 +155,7 @@ function RecordForm({ onSubmit }) {
             placeholder="Describe the activity"
             value={formData.proposed_activity}
             onChange={handleChange}
+            maxLength="30"
             rows="2"
             required
           />
@@ -155,31 +169,44 @@ function RecordForm({ onSubmit }) {
             placeholder="e.g., Conference Room A"
             value={formData.venue}
             onChange={handleChange}
-            required
-          />
-        </div>
-
-        <div className="form-group">
-          <label>Activity Date *</label>
-          <input
-            type="date"
-            name="activity_date"
-            value={formData.activity_date}
-            onChange={handleChange}
+            maxLength="25"
             required
           />
         </div>
 
         <div className="form-row">
           <div className="form-group">
-            <label>Time In * (1-12 AM/PM)</label>
+            <label>Activity Date From *</label>
+            <input
+              type="date"
+              name="activity_date_from"
+              value={formData.activity_date_from}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Activity Date To *</label>
+            <input
+              type="date"
+              name="activity_date_to"
+              value={formData.activity_date_to}
+              onChange={handleChange}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Time In (1-12 AM/PM)</label>
             <div className="time-input-group">
               <input
                 type="time"
                 name="time_in"
                 value={formData.time_in}
                 onChange={handleChange}
-                required
               />
               <span className="time-display">
                 {formData.time_in && formatTimeDisplay(formData.time_in)}
@@ -188,14 +215,13 @@ function RecordForm({ onSubmit }) {
           </div>
 
           <div className="form-group">
-            <label>Time Out * (1-12 AM/PM)</label>
+            <label>Time Out (1-12 AM/PM)</label>
             <div className="time-input-group">
               <input
                 type="time"
                 name="time_out"
                 value={formData.time_out}
                 onChange={handleChange}
-                required
               />
               <span className="time-display">
                 {formData.time_out && formatTimeDisplay(formData.time_out)}
@@ -212,8 +238,7 @@ function RecordForm({ onSubmit }) {
             placeholder="0"
             value={formData.no_of_participants}
             onChange={handleChange}
-            min="1"
-            required
+            min="0"
           />
         </div>
 
@@ -231,7 +256,7 @@ function RecordForm({ onSubmit }) {
         </div>
 
         <button type="submit" className="btn btn-primary">
-          💾 Save Record
+          <FiSave style={{ marginRight: '8px' }} /> Save Record
         </button>
       </form>
     </div>

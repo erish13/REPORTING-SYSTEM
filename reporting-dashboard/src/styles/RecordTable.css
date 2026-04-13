@@ -5,64 +5,140 @@
 
 .records-table {
   width: 100%;
-  min-width: 950px;
+  min-width: 1600px;
   table-layout: fixed;
   border-collapse: collapse;
   border-spacing: 0;
   background: #ffffff;
   border: 1px solid #e5e7eb;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 /* ===== HEADER ===== */
 .records-table thead th {
-  background: #1e3a8a;
+  background: #1b5e3f;
   color: #ffffff;
   text-align: left;
   vertical-align: middle;
-
-  /* Use horizontal padding only para pantay sa body height */
-  padding: 0 12px;
-  height: 52px;
-  line-height: 52px;
-
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-
+  padding: 10px;
+  height: 48px;
+  line-height: 1.4;
+  white-space: normal;
+  word-break: break-word;
   border-right: 1px solid rgba(255, 255, 255, 0.18);
   box-sizing: border-box;
+  font-weight: 600;
+  font-size: 12px;
+  display: table-cell;
 }
 
 .records-table thead th:last-child {
   border-right: none;
 }
 
-/* exact widths para aligned header/body */
+.records-table thead th.actions {
+  text-align: center;
+}
+
+/* ===== COLUMN WIDTHS ===== */
+.records-table th:nth-child(1),
+.records-table td:nth-child(1) {
+  width: 130px;
+  min-width: 130px;
+}
+
+.records-table th:nth-child(2),
+.records-table td:nth-child(2) {
+  width: 150px;
+  min-width: 150px;
+}
+
+.records-table th:nth-child(3),
+.records-table td:nth-child(3) {
+  width: 140px;
+  min-width: 140px;
+}
+
+.records-table th:nth-child(4),
+.records-table td:nth-child(4) {
+  width: 160px;
+  min-width: 160px;
+}
+
+.records-table th:nth-child(5),
+.records-table td:nth-child(5) {
+  width: 130px;
+  min-width: 130px;
+}
+
+.records-table th:nth-child(6),
+.records-table td:nth-child(6) {
+  width: 130px;
+  min-width: 130px;
+}
+
+.records-table th:nth-child(7),
+.records-table td:nth-child(7) {
+  width: 110px;
+  min-width: 110px;
+}
+
+.records-table th:nth-child(8),
+.records-table td:nth-child(8) {
+  width: 110px;
+  min-width: 110px;
+}
+
+/* No. of Participants column */
+.records-table th:nth-child(9),
+.records-table td:nth-child(9) {
+  width: 150px;
+  min-width: 150px;
+  text-align: center;
+}
+
+/* Fee column */
 .records-table th.money,
 .records-table td.money {
-  width: 170px;
-  min-width: 170px;
-  max-width: 170px;
+  width: 140px;
+  min-width: 140px;
+}
+
+.records-table th.money {
   text-align: right;
 }
 
+.records-table td.money {
+  text-align: left;
+  line-height: normal;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* Actions column */
 .records-table th.actions,
 .records-table td.actions {
-  width: 130px;
-  min-width: 130px;
-  max-width: 130px;
+  width: 138px;
+  min-width: 138px;
   text-align: center;
 }
 
 /* ===== BODY ===== */
 .records-table tbody td {
-  padding: 12px;
-  height: 52px;
+  padding: 10px;
+  height: 48px;
   vertical-align: middle;
   border-top: 1px solid #e5e7eb;
   border-right: 1px solid #f1f5f9;
   box-sizing: border-box;
+  display: table-cell;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+.records-table tbody tr {
+  height: 48px;
 }
 
 .records-table tbody td:last-child {
@@ -77,35 +153,227 @@
   background: #eef2ff;
 }
 
-/* ===== ACTION CELL ===== */
-.records-table td.actions {
-  padding: 0;
-}
-
-.records-table td.actions .actions-cell {
-  height: 52px;
+/* ===== ENVIRONMENTAL FEE (₱ + amount together on LEFT) ===== */
+.records-table td.money .fee-cell {
+  width: 100%;
+  height: 48px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 0 6px; /* tighter para walang sobrang white sa kanan */
-  margin: 0;
-  box-sizing: border-box;
+  justify-content: flex-start;
+  gap: 4px;
 }
 
-.btn-delete {
-  background: #111827;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  min-width: 90px;
-  height: 38px;
-  line-height: 38px;
-  padding: 0 12px;
-  white-space: nowrap;
+.records-table td.money .fee-symbol {
+  flex: 0 0 auto;
+  text-align: left;
+  opacity: 0.9;
   font-weight: 600;
 }
 
-.btn-delete:hover {
-  background: #000;
+.records-table td.money .fee-amount {
+  flex: 0 0 auto;
+  text-align: left;
+}
+
+/* ===== ACTION CELL ===== */
+.records-table td.actions {
+  padding: 6px 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: 5px;
+  height: 48px;
+  box-sizing: border-box;
+  overflow: visible;
+  background-color: #fafafa;
+}
+
+.records-table td.actions .actions-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+  height: 100%;
+  gap: 2px;
+}
+
+/* ===== ACTION BUTTONS ===== */
+.btn-action {
+  background: #f5f5f5;
+  border: 1px solid #d0d0d0;
+  cursor: pointer;
+  padding: 9px;
+  margin: 0;
+  transition: all 0.2s ease;
+  border-radius: 6px;
+  flex-shrink: 0;
+  width: 45px;
+  height: 45px;
+  min-width: 45px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 25px;
+}
+
+.btn-action svg {
+  width: 25px !important;
+  height: 25px !important;
+  stroke-width: 1.5;
+}
+
+.btn-action:active {
+  transform: scale(0.95);
+}
+
+.btn-action:disabled {
+  cursor: not-allowed;
+}
+
+/* View Button */
+.btn-view {
+  color: #2563eb;
+}
+
+.btn-view svg {
+  color: #2563eb;
+  fill: #2563eb;
+}
+
+.btn-view:hover {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+  border-color: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+/* Edit Button */
+.btn-edit {
+  color: #16a34a;
+}
+
+.btn-edit svg {
+  color: #16a34a;
+  fill: #16a34a;
+}
+
+.btn-edit:hover {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+  border-color: #16a34a;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25);
+}
+
+/* Delete Button */
+.btn-delete {
+  color: #dc2626;
+}
+
+.btn-delete svg {
+  color: #dc2626;
+  fill: #dc2626;
+}
+
+.btn-action.btn-delete:hover {
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+  border-color: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
+}
+
+/* ===== MODAL STYLES ===== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f8fafc;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.btn-close:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-row label {
+  font-weight: 600;
+  color: #374151;
+  min-width: 150px;
+}
+
+.detail-row span {
+  color: #111827;
+  word-break: break-word;
+  text-align: right;
+  flex: 1;
+  margin-left: 16px;
 }

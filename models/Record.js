@@ -1,7 +1,6 @@
 const pool = require('../config/db');
 
 class Record {
-  // CREATE: Add a new record
   static async create(data) {
     const {
       date,
@@ -9,81 +8,65 @@ class Record {
       office_in_charge,
       proposed_activity,
       venue,
-      activity_date,
+      activity_date_from,
+      activity_date_to,
       time_in,
       time_out,
       no_of_participants,
-      environmental_fee, // NEW
+      environmental_fee,
     } = data;
 
     const query = `
       INSERT INTO records 
       (date, organization_unit, office_in_charge, proposed_activity, 
-       venue, activity_date, time_in, time_out, no_of_participants, environmental_fee)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       venue, activity_date_from, activity_date_to, time_in, time_out, no_of_participants, environmental_fee)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    try {
-      const [result] = await pool.query(query, [
-        date,
-        organization_unit,
-        office_in_charge,
-        proposed_activity,
-        venue,
-        activity_date,
-        time_in,
-        time_out,
-        no_of_participants,
-        environmental_fee ?? 0, // NEW (default)
-      ]);
+    const [result] = await pool.query(query, [
+      date,
+      organization_unit,
+      office_in_charge,
+      proposed_activity,
+      venue,
+      activity_date_from,
+      activity_date_to,
+      time_in,
+      time_out,
+      no_of_participants,
+      environmental_fee ?? 0,
+    ]);
 
-      return {
-        success: true,
-        id: result.insertId,
-        message: 'Record created successfully',
-      };
-    } catch (error) {
-      throw new Error(`Create failed: ${error.message}`);
-    }
+    return { success: true, id: result.insertId, message: 'Record created successfully' };
   }
 
-  // READ: Get all records
   static async getAll() {
     const query = `
       SELECT 
         id, date, organization_unit, office_in_charge, proposed_activity,
-        venue, activity_date, time_in, time_out, no_of_participants, environmental_fee, created_at
+        venue, activity_date_from, activity_date_to, time_in, time_out, no_of_participants, environmental_fee, created_at
       FROM records
-      ORDER BY activity_date DESC
+      WHERE deleted_at IS NULL
+      ORDER BY activity_date_from DESC
     `;
-
-    try {
-      const [rows] = await pool.query(query);
-      return rows;
-    } catch (error) {
-      throw new Error(`Fetch all failed: ${error.message}`);
-    }
+    const [rows] = await pool.query(query);
+    return rows;
   }
 
-  // READ: Get single record by ID
   static async getById(id) {
-    const query = `
+    const [rows] = await pool.query(
+      `
       SELECT 
         id, date, organization_unit, office_in_charge, proposed_activity,
-        venue, activity_date, time_in, time_out, no_of_participants, environmental_fee, created_at
+        venue, activity_date_from, activity_date_to, time_in, time_out, no_of_participants, environmental_fee, created_at
       FROM records
       WHERE id = ?
-    `;
-
-    try {
-      const [rows] = await pool.query(query, [id]);
-      return rows[0] || null;
-    } catch (error) {
-      throw new Error(`Fetch by ID failed: ${error.message}`);
-    }
+    `,
+      [id]
+    );
+    return rows[0] || null;
   }
 
-  // UPDATE: Modify existing record
   static async update(id, data) {
     const {
       date,
@@ -91,86 +74,107 @@ class Record {
       office_in_charge,
       proposed_activity,
       venue,
-      activity_date,
+      activity_date_from,
+      activity_date_to,
       time_in,
       time_out,
       no_of_participants,
-      environmental_fee, // NEW
+      environmental_fee,
     } = data;
 
-    const query = `
+    const [result] = await pool.query(
+      `
       UPDATE records
       SET date = ?, organization_unit = ?, office_in_charge = ?, 
-          proposed_activity = ?, venue = ?, activity_date = ?, 
+          proposed_activity = ?, venue = ?, activity_date_from = ?, activity_date_to = ?,
           time_in = ?, time_out = ?, no_of_participants = ?, environmental_fee = ?
       WHERE id = ?
-    `;
-
-    try {
-      const [result] = await pool.query(query, [
+    `,
+      [
         date,
         organization_unit,
         office_in_charge,
         proposed_activity,
         venue,
-        activity_date,
+        activity_date_from,
+        activity_date_to,
         time_in,
         time_out,
         no_of_participants,
-        environmental_fee ?? 0, // NEW
+        environmental_fee ?? 0,
         id,
-      ]);
+      ]
+    );
 
-      if (result.affectedRows === 0) {
-        return { success: false, message: 'Record not found' };
-      }
-
-      return { success: true, message: 'Record updated successfully' };
-    } catch (error) {
-      throw new Error(`Update failed: ${error.message}`);
-    }
+    if (result.affectedRows === 0) return { success: false, message: 'Record not found' };
+    return { success: true, message: 'Record updated successfully' };
   }
 
-  // DELETE: Remove a record
+  // Soft delete - archives the record
   static async delete(id) {
-    const query = `DELETE FROM records WHERE id = ?`;
-
-    try {
-      const [result] = await pool.query(query, [id]);
-
-      if (result.affectedRows === 0) {
-        return { success: false, message: 'Record not found' };
-      }
-
-      return { success: true, message: 'Record deleted successfully' };
-    } catch (error) {
-      throw new Error(`Delete failed: ${error.message}`);
-    }
+    const [result] = await pool.query(
+      `UPDATE records SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL`,
+      [id]
+    );
+    if (result.affectedRows === 0) return { success: false, message: 'Record not found or already archived' };
+    return { success: true, message: 'Record archived successfully' };
   }
 
-  // Filter by date range
-  static async getByDateRange(startDate, endDate) {
-    const query = `
+  // Get all archived records
+  static async getArchived() {
+    const [rows] = await pool.query(`
       SELECT 
         id, date, organization_unit, office_in_charge, proposed_activity,
-        venue, activity_date, time_in, time_out, no_of_participants, environmental_fee, created_at
+        venue, activity_date_from, activity_date_to, time_in, time_out, no_of_participants, environmental_fee, created_at, deleted_at
       FROM records
-      WHERE activity_date BETWEEN ? AND ?
-      ORDER BY activity_date DESC
-    `;
-
-    try {
-      const [rows] = await pool.query(query, [startDate, endDate]);
-      console.log(`Records found for date range ${startDate} to ${endDate}:`, rows.length);
-      return rows;
-    } catch (error) {
-      throw new Error(`Date range filter failed: ${error.message}`);
-    }
+      WHERE deleted_at IS NOT NULL
+      ORDER BY deleted_at DESC
+    `);
+    return rows || [];
   }
 
-  // Get summary statistics
+  // Restore an archived record
+  static async restore(id) {
+    const [result] = await pool.query(
+      `UPDATE records SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL`,
+      [id]
+    );
+    if (result.affectedRows === 0) return { success: false, message: 'Record not found or not archived' };
+    return { success: true, message: 'Record restored successfully' };
+  }
+
+  // Permanently delete a record (hard delete)
+  static async permanentlyDelete(id) {
+    const [result] = await pool.query(`DELETE FROM records WHERE id = ?`, [id]);
+    if (result.affectedRows === 0) return { success: false, message: 'Record not found' };
+    return { success: true, message: 'Record permanently deleted' };
+  }
+
+  // Auto-delete archived records older than 30 days
+  static async deleteArchivedOlderThan30Days() {
+    const [result] = await pool.query(
+      `DELETE FROM records WHERE deleted_at IS NOT NULL AND deleted_at < DATE_SUB(NOW(), INTERVAL 30 DAY)`
+    );
+    return { success: true, deletedCount: result.affectedRows };
+  }
+
+  static async getByDateRange(startDate, endDate) {
+    const [rows] = await pool.query(
+      `
+      SELECT 
+        id, date, organization_unit, office_in_charge, proposed_activity,
+        venue, activity_date_from, activity_date_to, time_in, time_out, no_of_participants, environmental_fee, created_at
+      FROM records
+      WHERE activity_date_from BETWEEN ? AND ?
+      ORDER BY activity_date_from DESC
+    `,
+      [startDate, endDate]
+    );
+    return rows;
+  }
+
   static async getSummary() {
-    const query = `
+    const [rows] = await pool.query(`
       SELECT 
         COUNT(*) as total_records,
         COUNT(DISTINCT organization_unit) as total_units,
@@ -179,106 +183,8 @@ class Record {
         MAX(activity_date) as latest_activity,
         MIN(activity_date) as earliest_activity
       FROM records
-    `;
-
-    try {
-      const [rows] = await pool.query(query);
-      return rows[0] || {};
-    } catch (error) {
-      throw new Error(`Summary failed: ${error.message}`);
-    }
-  }
-
-  // Get records by organization
-  static async getByOrganization(organization_unit) {
-    const query = `
-      SELECT 
-        id, date, organization_unit, office_in_charge, proposed_activity,
-        venue, activity_date, time_in, time_out, no_of_participants, environmental_fee, created_at
-      FROM records
-      WHERE organization_unit = ?
-      ORDER BY activity_date DESC
-    `;
-
-    try {
-      const [rows] = await pool.query(query, [organization_unit]);
-      return rows;
-    } catch (error) {
-      throw new Error(`Organization filter failed: ${error.message}`);
-    }
-  }
-
-  // Get active (non-archived) records
-  static async getActiveRecords() {
-    const query = `
-      SELECT 
-        id, date, organization_unit, office_in_charge, proposed_activity,
-        venue, activity_date, time_in, time_out, no_of_participants, environmental_fee, created_at
-      FROM records
-      WHERE is_archived = 0
-      ORDER BY activity_date DESC
-    `;
-    try {
-      const [rows] = await pool.query(query);
-      return rows;
-    } catch (error) {
-      throw new Error(`Fetch active records failed: ${error.message}`);
-    }
-  }
-
-  // Mark records as archived for a specific week
-  static async markRecordsAsArchived(startDate, endDate, archiveWeekKey) {
-    const query = `
-      UPDATE records
-      SET is_archived = 1, archive_week_key = ?
-      WHERE activity_date BETWEEN ? AND ?
-    `;
-    try {
-      const [result] = await pool.query(query, [archiveWeekKey, startDate, endDate]);
-      return { success: true, affectedRows: result.affectedRows };
-    } catch (error) {
-      throw new Error(`Archive records failed: ${error.message}`);
-    }
-  }
-
-  // Get archived records by week key
-  static async getArchivedRecordsByWeek(archiveWeekKey) {
-    const query = `
-      SELECT 
-        id, date, organization_unit, office_in_charge, proposed_activity,
-        venue, activity_date, time_in, time_out, no_of_participants, environmental_fee, created_at, archive_week_key
-      FROM records
-      WHERE is_archived = 1 AND archive_week_key = ?
-      ORDER BY activity_date DESC
-    `;
-    try {
-      const [rows] = await pool.query(query, [archiveWeekKey]);
-      return rows;
-    } catch (error) {
-      throw new Error(`Fetch archived records failed: ${error.message}`);
-    }
-  }
-
-  // Get all archived weeks
-  static async getArchivedWeeks() {
-    const query = `
-      SELECT DISTINCT 
-        archive_week_key, 
-        MIN(activity_date) as week_start, 
-        MAX(activity_date) as week_end, 
-        COUNT(*) as record_count,
-        SUM(COALESCE(environmental_fee, 0)) as total_environmental_fee
-      FROM records
-      WHERE is_archived = 1
-      GROUP BY archive_week_key
-      ORDER BY archive_week_key DESC
-    `;
-    try {
-      const [rows] = await pool.query(query);
-      return rows;
-    } catch (error) {
-      throw new Error(`Fetch archived weeks failed: ${error.message}`);
-    }
+    `);
+    return rows[0] || {};
   }
 }
 
