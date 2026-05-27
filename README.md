@@ -24,33 +24,77 @@ A web-based reporting system with:
 ---
 
 ## Features
-- View and run reports from a dashboard UI
-- Backend routes/controllers for report-related endpoints
-- Middleware layer for request handling (auth/security logic may live here)
-- Report definitions located in the `reports/` folder
-
-> Update this section as you finalize features (filters, export, scheduling, role restrictions, etc.).
+✅ **User Authentication** – JWT-based login/logout with secure session management  
+✅ **Role-Based Access Control** – Admin, Manager, and User roles with permission-based endpoints  
+✅ **Archived Reports** – Soft delete functionality for maintaining historical data  
+✅ **Report Generation** – Dynamic report generation with advanced filtering  
+✅ **Password Reset** – Email-based password reset with token expiration  
+✅ **Record Management** – Full CRUD operations with filtering and pagination  
+✅ **Responsive Dashboard** – Modern React UI with real-time data updates  
+✅ **Comprehensive Error Handling** – Global middleware error handling  
+✅ **CORS Support** – Multi-origin request support
 
 ---
 
 ## Project Structure
 
-- `server.js` – backend entry point
-- `routes/` – API routes
-- `controllers/` – route handlers / controller logic
-- `middleware/` – middleware (auth, restrictions, validation, etc.)
-- `models/` – data models
-- `reports/` – report logic/definitions
-- `utils/` – shared utilities
-- `reporting-dashboard/` – React + Vite frontend
+```
+REPORTING-SYSTEM/
+├── server.js                       # Express server entry point
+├── package.json                    # Backend dependencies
+├── .env                           # Environment variables (DO NOT COMMIT)
+├── config/
+│   └── db.js                      # MySQL connection
+├── routes/
+│   ├── auth.js                    # Authentication endpoints
+│   ├── records.js                 # Record management
+│   └── reports.js                 # Report generation
+├── controllers/
+│   ├── recordController.js         # Record business logic
+│   └── reportController.js         # Report generation logic
+├── middleware/
+│   ├── auth.js                    # JWT verification
+│   ├── authorize.js               # Role-based authorization
+│   └── errorHandler.js            # Global error handling
+├── models/
+│   └── Record.js                  # Data model
+├── utils/
+│   ├── dateUtils.js               # Date utilities
+│   ├── email.js                   # Email sending
+│   └── envUpdater.js              # Environment utils
+├── reports/
+│   └── reports_index.json         # Report definitions
+├── reporting-dashboard/           # React + Vite frontend
+│   ├── package.json
+│   ├── vite.config.js
+│   ├── index.html
+│   ├── src/
+│   │   ├── main.jsx
+│   │   ├── App.jsx
+│   │   ├── components/
+│   │   │   ├── Dashboard.jsx
+│   │   │   ├── LoginForm.jsx
+│   │   │   ├── RecordForm.jsx
+│   │   │   ├── RecordTable.jsx
+│   │   │   ├── ReportGenerator.jsx
+│   │   │   ├── ArchivedReports.jsx
+│   │   │   ├── ArchivedReportsModal.jsx
+│   │   │   ├── FilterBar.jsx
+│   │   │   └── ResetPasswordForm.jsx
+│   │   ├── services/
+│   │   │   └── api.js            # Axios instance
+│   │   └── styles/               # Component styles
+│   └── public/
+└── README.md                      # This file
+```
 
 ---
 
 ## Prerequisites
-- **Node.js** (LTS recommended)
-- **npm** (comes with Node.js)
-
-If your system requires a database, make sure it is installed and running and that your connection variables are set (see [Configuration](#configuration-environment-variables)).
+- **Node.js** v14+ (LTS recommended)
+- **npm** v6+ (included with Node.js)
+- **MySQL** v5.7+ or MySQL 8.0
+- **Git**
 
 ---
 
